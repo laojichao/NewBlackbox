@@ -5,12 +5,29 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
+/**
+ * Utility class for executing shell commands on Android devices. Supports both
+ * root ({@code su}) and non-root ({@code sh}) command execution with optional
+ * result message capture.
+ * <p>
+ * Based on Trinea's shell utility implementation.
+ * </p>
+ */
 public class ShellUtils {
+    /** Shell command to start a root shell. */
     public static final String COMMAND_SU = "su";
+    /** Shell command to start a non-root shell. */
     public static final String COMMAND_SH = "sh";
+    /** Shell command to exit the current shell session. */
     public static final String COMMAND_EXIT = "exit\n";
+    /** Line terminator for shell commands. */
     public static final String COMMAND_LINE_END = "\n";
 
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     *
+     * @throws AssertionError always
+     */
     private ShellUtils() {
         throw new AssertionError();
     }
@@ -117,6 +134,12 @@ public class ShellUtils {
          **/
         public final String successMsg;
 
+        /**
+         * Constructs a command result with the given exit code and output message.
+         *
+         * @param result     the process exit code (0 for success)
+         * @param successMsg the captured stdout output, or {@code null} if not requested
+         */
         public CommandResult(int result, String successMsg) {
             this.result = result;
             this.successMsg = successMsg;

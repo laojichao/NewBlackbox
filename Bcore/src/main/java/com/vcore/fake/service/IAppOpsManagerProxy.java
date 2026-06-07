@@ -13,16 +13,30 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Proxy for IAppOpsService (AppOps Manager) system service that intercepts app operations permission checks such as noteProxyOperation, checkPackage, checkOperation, and noteOperation, replacing package names and UIDs for the virtual environment.
+ */
 public class IAppOpsManagerProxy extends BinderInvocationStub {
     public IAppOpsManagerProxy() {
         super(ServiceManager.getService.call(Context.APP_OPS_SERVICE));
     }
 
+
+    /**
+     * Returns the IAppOpsService binder interface from ServiceManager.
+     * @return the IAppOpsService proxy instance
+     */
     @Override
     protected Object getWho() {
         return IAppOpsService.Stub.asInterface.call(ServiceManager.getService.call(Context.APP_OPS_SERVICE));
     }
 
+
+    /**
+     * Replaces the system APP_OPS_SERVICE and the AppOpsManager internal service reference.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         if (black.android.app.AppOpsManager.mService != null) {
@@ -37,6 +51,15 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
 
     }
 
+
+    /**
+     * Intercepts all method calls to replace the first package name and last UID arguments.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         MethodParameterUtils.replaceFirstAppPkg(args);
@@ -44,6 +67,11 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
         return super.invoke(proxy, method, args);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

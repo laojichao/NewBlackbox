@@ -8,6 +8,12 @@ import androidx.lifecycle.ViewModelProvider
 import com.vspace.util.InjectionUtil
 import com.vspace.view.list.ListViewModel
 
+/**
+ * Splash/welcome activity that pre-scans the host-device installed app list
+ * before immediately navigating to [MainActivity].
+ *
+ * Also handles re-entry via [onNewIntent] to avoid duplicate launches.
+ */
 class WelcomeActivity : AppCompatActivity() {
     @SuppressLint("MissingSuperCall")
     override fun onNewIntent(intent: Intent?) {
@@ -21,11 +27,18 @@ class WelcomeActivity : AppCompatActivity() {
         jump()
     }
 
+    /**
+     * Navigates to [MainActivity] and finishes this activity.
+     */
     private fun jump() {
         MainActivity.start(this)
         finish()
     }
 
+    /**
+     * Kicks off a background scan of host-device installed apps via [ListViewModel]
+     * so the app picker is pre-populated when the user first opens it.
+     */
     private fun previewInstalledAppList() {
         val viewModel = ViewModelProvider(this, InjectionUtil.getListFactory())[ListViewModel::class.java]
         viewModel.previewInstalledList()

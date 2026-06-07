@@ -16,21 +16,40 @@ import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.fake.service.base.PkgMethodProxy;
 import com.vcore.fake.service.base.ValueMethodProxy;
 
+/**
+ * Proxy for IUserManager system service that intercepts user management operations including user queries, profile parent, and application restrictions, providing virtual environment user info and restricting user enumeration.
+ */
 public class IUserManagerProxy extends BinderInvocationStub {
     public IUserManagerProxy() {
         super(ServiceManager.getService.call(Context.USER_SERVICE));
     }
 
+
+    /**
+     * Returns the IUserManager binder interface from ServiceManager.
+     * @return the IUserManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IUserManager.Stub.asInterface.call(ServiceManager.getService.call(Context.USER_SERVICE));
     }
 
+
+    /**
+     * Replaces the system USER_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.USER_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

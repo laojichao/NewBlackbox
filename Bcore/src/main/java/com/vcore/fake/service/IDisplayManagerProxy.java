@@ -10,14 +10,28 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Proxy for IDisplayManager (via DisplayManagerGlobal) that intercepts virtual display creation, replacing the calling package name with the virtual app package.
+ */
 public class IDisplayManagerProxy extends ClassInvocationStub {
     public IDisplayManagerProxy() { }
 
+
+    /**
+     * Returns the IDisplayManager from DisplayManagerGlobal.
+     * @return the IDisplayManager instance
+     */
     @Override
     protected Object getWho() {
         return DisplayManagerGlobal.mDm.get(DisplayManagerGlobal.getInstance.call());
     }
 
+
+    /**
+     * Replaces the DisplayManagerGlobal IDisplayManager reference with the proxy.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         Object dmg = DisplayManagerGlobal.getInstance.call();
@@ -30,6 +44,11 @@ public class IDisplayManagerProxy extends ClassInvocationStub {
         addMethodHook(new CreateVirtualDisplay());
     }
 
+
+    /**
+     * Checks if the hook environment is compromised by verifying DisplayManagerGlobal still points to the proxy.
+     * @return true if the proxy has been replaced
+     */
     @Override
     public boolean isBadEnv() {
         Object dmg = DisplayManagerGlobal.getInstance.call();

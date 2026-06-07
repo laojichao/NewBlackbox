@@ -22,19 +22,56 @@ import com.vcore.core.env.BEnvironment;
 import com.vcore.utils.FileUtils;
 import com.vcore.utils.TrieTree;
 
+/**
+ * Core I/O redirection engine for the BlackBox virtual environment.
+ * <p>
+ * This class intercepts file system paths accessed by virtual applications and redirects them
+ * to the appropriate virtual directories. It uses a {@link TrieTree} for efficient prefix-based
+ * path matching and delegates native-level I/O redirection to {@link NativeCore}.
+ * <p>
+ * Key responsibilities:
+ * <ul>
+ *   <li>Redirect virtual app data directories (e.g., {@code /data/data/pkg} to virtual storage)</li>
+ *   <li>Redirect SD card and external storage paths to per-user virtual external storage</li>
+ *   <li>Redirect {@code /proc} entries to virtual proc files for PID spoofing</li>
+ *   <li>Optionally hide root-related file paths when root hiding is enabled</li>
+ *   <li>Maintain a whitelist of paths that should bypass redirection</li>
+ * </ul>
+ */
 @SuppressLint("SdCardPath")
 public class IOCore {
+    /** Logging tag for this class. */
     public static final String TAG = "IOCore";
 
+    /** Singleton instance. */
     private static final IOCore sIOCore = new IOCore();
+    /** Trie tree for fast prefix matching of original paths to redirect. */
     private static final TrieTree mTrieTree = new TrieTree();
+    /** Trie tree for paths that should bypass redirection (whitelist). */
     private static final TrieTree sBlackTree = new TrieTree();
+    /** Map of original path prefixes to their redirected destinations. */
     private final Map<String, String> mRedirectMap = new LinkedHashMap<>();
 
+    /**
+     * Returns the singleton instance of {@link IOCore}.
+     *
+     * @return the IOCore instance
+     */
     public static IOCore get() {
         return sIOCore;
     }
 
+    /**
+     * Adds an I/O redirection rule mapping an original path prefix to a redirect path.
+     * <p>
+     * The original path is added to the {@link TrieTree} for fast prefix matching. When a virtual
+     * app accesses a path starting with {@code origPath}, it will be rewritten to start with
+     * {@code redirectPath} instead. The redirect directory is created if it does not exist.
+     * The rule is also registered at the native level via {@link NativeCore#addIORule}.
+     *
+     * @param origPath     the original file path prefix to intercept
+     * @param redirectPath the replacement path prefix
+     */
     // 路径前缀匹配，重定向
     // /data/data/com.google/  ----->  /data/data/com.virtual/data/com.google/
     public void addRedirect(String origPath, String redirectPath) {
@@ -51,6 +88,12 @@ public class IOCore {
         NativeCore.addIORule(origPath, redirectPath);
     }
 
+    /**
+     * Adds a path to the I/O whitelist. Paths matching this prefix will bypass all other
+     * redirection rules and be returned as-is.
+     *
+     * @param path the path prefix to whitelist
+     */
     public void addBlackRedirect(String path) {
         if (TextUtils.isEmpty(path)) {
             return;
@@ -59,6 +102,16 @@ public class IOCore {
         NativeCore.addWhiteList(path);
     }
 
+    /**
+     * Redirects the given file path according to the configured I/O rules.
+     * <p>
+     * Paths containing {@code "/blackbox/"} are returned unchanged (already virtual).
+     * Whitelist paths (from {@link #addBlackRedirect}) are returned unchanged.
+     * Otherwise, the longest matching prefix in the trie is replaced with its redirect target.
+     *
+     * @param path the original file path to redirect
+     * @return the redirected path, or the original path if no rule matches
+     */
     public String redirectPath(String path) {
         if (TextUtils.isEmpty(path)) {
             return path;
@@ -79,6 +132,12 @@ public class IOCore {
         return path;
     }
 
+    /**
+     * Redirects the given file path and returns a new {@link File} with the redirected path.
+     *
+     * @param path the original file to redirect
+     * @return a new {@link File} with the redirected path, or {@code null} if {@code path} is {@code null}
+     */
     public File redirectPath(File path) {
         if (path == null) {
             return null;
@@ -87,6 +146,15 @@ public class IOCore {
         return new File(redirectPath(pathStr));
     }
 
+    /**
+     * Redirects a path using a custom rule map instead of the global rules.
+     * <p>
+     * This overload is used during the setup phase before the global rules are fully installed.
+     *
+     * @param path the original file path to redirect
+     * @param rule the custom rule map (original prefix to redirect prefix)
+     * @return the redirected path
+     */
     public String redirectPath(String path, Map<String, String> rule) {
         if (TextUtils.isEmpty(path)) {
             return path;
@@ -99,6 +167,21 @@ public class IOCore {
         return path;
     }
 
+    /**
+     * Enables I/O redirection for the current virtual application process.
+     * <p>
+     * This method sets up all path redirection rules including:
+     * <ul>
+     *   <li>Data directories for all installed virtual packages</li>
+     *   <li>Native library directories</li>
+     *   <li>SD card and external storage paths (redirected to per-user virtual storage)</li>
+     *   <li>Root-related paths (if root hiding is enabled)</li>
+     *   <li>{@code /proc/self/cmdline} for PID spoofing</li>
+     * </ul>
+     * After all rules are registered, native I/O interception is activated via {@link NativeCore#enableIO()}.
+     *
+     * @param context the virtual application's package context
+     */
     // 由于正常情况Application已完成重定向，以下重定向是怕代码写死。
     public void enableRedirect(Context context) {
         Map<String, String> rule = new LinkedHashMap<>();
@@ -161,6 +244,11 @@ public class IOCore {
         NativeCore.enableIO();
     }
 
+    /**
+     * Adds root-hiding redirect rules that map known root binary paths to non-existent fake paths.
+     *
+     * @param rule the rule map to populate with root-hiding entries
+     */
     private void hideRoot(Map<String, String> rule) {
         rule.put("/system/app/Superuser.apk", "/system/app/Superuser.apk-fake");
         rule.put("/sbin/su", "/sbin/su-fake");
@@ -174,6 +262,14 @@ public class IOCore {
         rule.put("/su/bin/su", "/su/bin/su-fake");
     }
 
+    /**
+     * Adds {@code /proc} path redirection rules for PID spoofing.
+     * <p>
+     * Redirects {@code /proc/self/cmdline} and {@code /proc/{hostPid}/cmdline} to a virtual
+     * cmdline file so that apps reading their own PID from proc see the virtual PID instead.
+     *
+     * @param rule the rule map to populate with proc entries
+     */
     private void proc(Map<String, String> rule) {
         int appPid = BActivityThread.getAppPid();
         int pid = Process.myPid();

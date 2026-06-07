@@ -22,6 +22,14 @@ import java.util.ArrayList;
 import com.vcore.entity.pm.InstallOption;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Parcelable representation of an Android package within the virtual environment.
+ *
+ * <p>This class mirrors the structure of {@link android.content.pm.PackageParser.Package}
+ * but is designed for IPC transfer and virtual environment management. It contains all
+ * package components (activities, services, providers, receivers), permissions, signatures,
+ * and metadata. Inner classes represent individual components and their intent filters.</p>
+ */
 public class BPackage implements Parcelable {
     public final ArrayList<Activity> activities;
     public final ArrayList<Activity> receivers;
@@ -51,6 +59,15 @@ public class BPackage implements Parcelable {
 
     public InstallOption installOption;
 
+    /**
+     * Constructs a BPackage from a parsed Android package.
+     *
+     * <p>Converts all components (activities, receivers, providers, services,
+     * instrumentation, permissions, permission groups) from the system PackageParser
+     * format to the virtual environment format, preserving intent filters and metadata.</p>
+     *
+     * @param aPackage the parsed package from the system PackageParser
+     */
     public BPackage(PackageParser.Package aPackage) {
         this.activities = new ArrayList<>(aPackage.activities.size());
         for (PackageParser.Activity activity : aPackage.activities) {
@@ -141,6 +158,11 @@ public class BPackage implements Parcelable {
         this.reqFeatures = aPackage.reqFeatures;
     }
 
+    /**
+     * Constructs a BPackage by deserializing from a Parcel.
+     *
+     * @param in the Parcel to read from
+     */
     protected BPackage(Parcel in) {
         int N = in.readInt();
         this.activities = new ArrayList<>(N);
@@ -237,6 +259,10 @@ public class BPackage implements Parcelable {
         this.installOption = in.readParcelable(InstallOption.class.getClassLoader());
     }
 
+    /**
+     * Represents an Activity component within a virtual package.
+     * Contains the activity info and its intent filter declarations.
+     */
     public final static class Activity extends Component<ActivityIntentInfo> {
         public final ActivityInfo info;
 
@@ -267,6 +293,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Represents a Service component within a virtual package.
+     * Contains the service info and its intent filter declarations.
+     */
     public static final class Service extends Component<ServiceIntentInfo> {
         public final ServiceInfo info;
 
@@ -297,6 +327,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Represents a ContentProvider component within a virtual package.
+     * Contains the provider info and its intent filter declarations.
+     */
     public static final class Provider extends Component<ProviderIntentInfo> {
         public final ProviderInfo info;
 
@@ -327,6 +361,9 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Represents an Instrumentation component within a virtual package.
+     */
     public static final class Instrumentation extends Component<IntentInfo> {
         public final InstrumentationInfo info;
 
@@ -357,6 +394,9 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Represents a Permission declaration within a virtual package.
+     */
     public static final class Permission extends Component<IntentInfo> {
         public final PermissionInfo info;
 
@@ -387,6 +427,9 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Represents a PermissionGroup declaration within a virtual package.
+     */
     public static final class PermissionGroup extends Component<IntentInfo> {
         public final PermissionGroupInfo info;
 
@@ -417,6 +460,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Intent filter info specific to Activity components.
+     * Back-references the parent Activity.
+     */
     public static class ActivityIntentInfo extends IntentInfo {
         public Activity activity;
 
@@ -429,6 +476,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Intent filter info specific to Service components.
+     * Back-references the parent Service.
+     */
     public static class ServiceIntentInfo extends IntentInfo {
         public Service service;
 
@@ -441,6 +492,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Intent filter info specific to Provider components.
+     * Back-references the parent Provider.
+     */
     public static class ProviderIntentInfo extends IntentInfo {
         public Provider provider;
 
@@ -453,6 +508,10 @@ public class BPackage implements Parcelable {
         }
     }
 
+    /**
+     * Parcelable wrapper for package signing details.
+     * Supports both current and past signing certificates for API level compatibility.
+     */
     public static final class SigningDetails implements Parcelable {
         public final Signature[] signatures;
 
@@ -491,6 +550,10 @@ public class BPackage implements Parcelable {
         };
     }
 
+    /**
+     * Parcelable representation of an intent filter with additional metadata
+     * such as labels, icons, and default handling flags.
+     */
     public static class IntentInfo implements Parcelable {
         public final IntentFilter intentFilter;
         public final boolean hasDefault;
@@ -559,6 +622,12 @@ public class BPackage implements Parcelable {
         };
     }
 
+    /**
+     * Base class for all package components (activities, services, providers, etc.).
+     * Contains the component's class name, metadata, and associated intent filters.
+     *
+     * @param <II> the type of IntentInfo this component uses
+     */
     public static class Component<II extends BPackage.IntentInfo> {
         public BPackage owner;
         public ArrayList<II> intents;

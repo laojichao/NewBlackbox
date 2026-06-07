@@ -22,14 +22,36 @@ import com.vcore.utils.CloseUtils;
 import com.vcore.utils.FileUtils;
 import com.vcore.utils.compat.XposedParserCompat;
 
+/**
+ * Manages Xposed module state within the virtual environment.
+ *
+ * <p>This service handles enabling/disabling the Xposed framework and individual Xposed
+ * modules. It persists module configuration to disk and listens for package install/uninstall
+ * events to keep the module list synchronized. Implements {@link PackageMonitor} to react
+ * to package lifecycle changes for the Xposed user space.</p>
+ */
 public class BXposedManagerService extends IBXposedManagerService.Stub implements ISystemService, PackageMonitor {
+
+    /** Singleton instance of the service. */
     private static final BXposedManagerService sService = new BXposedManagerService();
 
+    /** The current Xposed configuration (enable state and per-module states). */
     private XposedConfig mXposedConfig;
+
+    /** Lock object for synchronizing Xposed config access. */
     private final Object mLock = new Object();
+
+    /** The package manager service for querying installed packages. */
     private BPackageManagerService mPms;
+
+    /** Cache of parsed module metadata keyed by package name. */
     private final Map<String, InstalledModule> mCacheModule = new HashMap<>();
 
+    /**
+     * Returns the singleton instance of the service.
+     *
+     * @return the global {@link BXposedManagerService} instance
+     */
     public static BXposedManagerService get() {
         return sService;
     }
@@ -100,6 +122,10 @@ public class BXposedManagerService extends IBXposedManagerService.Stub implement
         }
     }
 
+    /**
+     * Loads the Xposed module configuration from disk.
+     * Creates a default configuration if the file does not exist.
+     */
     private void loadModuleStateLr() {
         File xpModuleConf = BEnvironment.getXPModuleConf();
         if (!xpModuleConf.exists()) {
@@ -121,6 +147,9 @@ public class BXposedManagerService extends IBXposedManagerService.Stub implement
         }
     }
 
+    /**
+     * Saves the current Xposed configuration to disk using atomic file writes.
+     */
     private void saveModuleStateLw() {
         Parcel parcel = Parcel.obtain();
         AtomicFile atomicFile = new AtomicFile(BEnvironment.getXPModuleConf());

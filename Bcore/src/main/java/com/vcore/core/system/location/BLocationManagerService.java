@@ -30,26 +30,52 @@ import com.vcore.utils.FileUtils;
 import com.vcore.utils.Slog;
 
 /**
- * Fake location
- * plan1: only GPS invocation is valid and other methods like addressed by cells are intercepted at all.
- * plan2: mock fake neighboring cells from LBS database and modify the result of GPS invocation.
- * plan3: cheat internal application at being given permission to access location information but get data from BB.
- * the final testing condition requires UI demo.
- * Created by BlackBoxing on 3/8/22.
- **/
+ * Virtual location manager service for the BlackBox environment.
+ * <p>
+ * Supports three location modes per package:
+ * <ul>
+ *   <li><b>CLOSE_MODE</b>: Location spoofing is disabled; real GPS data is returned.</li>
+ *   <li><b>OWN_MODE</b>: Uses per-package fake location/cell configuration.</li>
+ *   <li><b>GLOBAL_MODE</b>: Uses a globally configured fake location/cell for all packages.</li>
+ * </ul>
+ * Manages location update listeners, persists configurations to disk, and
+ * dispatches fake location updates on a cached thread pool.
+ */
 public class BLocationManagerService extends IBLocationManagerService.Stub implements ISystemService {
     public static final String TAG = "BLocationManagerService";
 
+    /** Singleton instance. */
     private static final BLocationManagerService sService = new BLocationManagerService();
+
+    /** Per-user, per-package location configuration map. */
     private final SparseArray<HashMap<String, BLocationConfig>> mLocationConfigs = new SparseArray<>();
+
+    /** Global location configuration used when a package is in GLOBAL_MODE. */
     private final BLocationConfig mGlobalConfig = new BLocationConfig();
+
+    /** Map of active location listener binders to their associated LocationRecords. */
     private final Map<IBinder, LocationRecord> mLocationListeners = new HashMap<>();
+
+    /** Thread pool for dispatching location updates to listeners. */
     private final Executor mThreadPool = Executors.newCachedThreadPool();
 
+    /**
+     * Returns the singleton instance of BLocationManagerService.
+     *
+     * @return the singleton service instance
+     */
     public static BLocationManagerService get() {
         return sService;
     }
 
+    /**
+     * Returns the existing location configuration for the given user and package,
+     * creating a new one with CLOSE_MODE if none exists.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the BLocationConfig for the package
+     */
     private BLocationConfig getOrCreateConfig(int userId, String pkg) {
         synchronized (mLocationConfigs) {
             HashMap<String, BLocationConfig> pkgs = mLocationConfigs.get(userId);
@@ -68,6 +94,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the location mode pattern for the given user and package.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the pattern constant (CLOSE_MODE, OWN_MODE, or GLOBAL_MODE)
+     */
     public int getPattern(int userId, String pkg) {
         synchronized (mLocationConfigs) {
             BLocationConfig config = getOrCreateConfig(userId, pkg);
@@ -75,6 +108,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the location mode pattern for the given user and package.
+     *
+     * @param userId  the virtual user ID
+     * @param pkg     the package name
+     * @param pattern the pattern constant to set
+     */
     @Override
     public void setPattern(int userId, String pkg, int pattern) {
         synchronized (mLocationConfigs) {
@@ -83,6 +123,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the fake cell info for the given user and package.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @param cell   the BCell to set as the fake cell
+     */
     @Override
     public void setCell(int userId, String pkg, BCell cell) {
         synchronized (mLocationConfigs) {
@@ -91,6 +138,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets all cell info for the given user and package.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @param cells  the list of BCell objects
+     */
     @Override
     public void setAllCell(int userId, String pkg, List<BCell> cells) {
         synchronized (mLocationConfigs) {
@@ -99,6 +153,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the neighboring cell info for the given user and package.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @param cells  the list of neighboring BCell objects
+     */
     @Override
     public void setNeighboringCell(int userId, String pkg, List<BCell> cells) {
         synchronized (mLocationConfigs) {
@@ -107,6 +168,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the neighboring cell info for the given user and package.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the list of neighboring BCell objects
+     */
     @Override
     public List<BCell> getNeighboringCell(int userId, String pkg) {
         synchronized (mLocationConfigs) {
@@ -114,6 +182,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the global fake cell info, used by packages in GLOBAL_MODE.
+     *
+     * @param cell the BCell to set as the global fake cell
+     */
     @Override
     public void setGlobalCell(BCell cell) {
         synchronized (mGlobalConfig) {
@@ -122,6 +195,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the global all-cell info.
+     *
+     * @param cells the list of BCell objects
+     */
     @Override
     public void setGlobalAllCell(List<BCell> cells) {
         synchronized (mGlobalConfig) {
@@ -130,6 +208,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the global neighboring cell info.
+     *
+     * @param cells the list of neighboring BCell objects
+     */
     @Override
     public void setGlobalNeighboringCell(List<BCell> cells) {
         synchronized (mGlobalConfig) {
@@ -138,6 +221,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the global neighboring cell info.
+     *
+     * @return the list of global neighboring BCell objects
+     */
     @Override
     public List<BCell> getGlobalNeighboringCell() {
         synchronized (mGlobalConfig) {
@@ -145,6 +233,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the cell info for the given user and package, respecting the current mode.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the BCell for OWN_MODE or GLOBAL_MODE, null for CLOSE_MODE
+     */
     @Override
     public BCell getCell(int userId, String pkg) {
         BLocationConfig config = getOrCreateConfig(userId, pkg);
@@ -159,6 +254,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the all-cell info for the given user and package, respecting the current mode.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the list of BCell objects for OWN_MODE or GLOBAL_MODE, null for CLOSE_MODE
+     */
     @Override
     public List<BCell> getAllCell(int userId, String pkg) {
         BLocationConfig config = getOrCreateConfig(userId, pkg);
@@ -173,6 +275,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the fake location for the given user and package.
+     *
+     * @param userId   the virtual user ID
+     * @param pkg      the package name
+     * @param location the BLocation to set
+     */
     @Override
     public void setLocation(int userId, String pkg, BLocation location) {
         synchronized (mLocationConfigs) {
@@ -181,6 +290,13 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the fake location for the given user and package, respecting the current mode.
+     *
+     * @param userId the virtual user ID
+     * @param pkg    the package name
+     * @return the BLocation for OWN_MODE or GLOBAL_MODE, null for CLOSE_MODE
+     */
     @Override
     public BLocation getLocation(int userId, String pkg) {
         BLocationConfig config = getOrCreateConfig(userId, pkg);
@@ -195,6 +311,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Sets the global fake location, used by packages in GLOBAL_MODE.
+     *
+     * @param location the BLocation to set as the global fake location
+     */
     @Override
     public void setGlobalLocation(BLocation location) {
         synchronized (mGlobalConfig) {
@@ -203,6 +324,11 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns the global fake location.
+     *
+     * @return the global BLocation
+     */
     @Override
     public BLocation getGlobalLocation() {
         synchronized (mGlobalConfig) {
@@ -210,6 +336,15 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Registers a location update listener. The listener receives periodic fake
+     * location updates as long as its binder is alive.
+     *
+     * @param listener    the binder of the location listener
+     * @param packageName the package registering the listener
+     * @param userId      the virtual user ID
+     * @throws RemoteException if the listener binder is dead
+     */
     @Override
     public void requestLocationUpdates(IBinder listener, String packageName, int userId) throws RemoteException {
         if (listener == null || !listener.pingBinder()) {
@@ -232,6 +367,12 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         addTask(listener);
     }
 
+    /**
+     * Unregisters a location update listener.
+     *
+     * @param listener the binder of the location listener to remove
+     * @throws RemoteException if the listener binder check fails
+     */
     @Override
     public void removeUpdates(IBinder listener) throws RemoteException {
         if (listener == null || !listener.pingBinder()) {
@@ -240,6 +381,12 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         mLocationListeners.remove(listener);
     }
 
+    /**
+     * Submits a location update task to the thread pool for the given listener.
+     * The task periodically checks for location changes and dispatches updates.
+     *
+     * @param locationListener the binder of the location listener
+     */
     private void addTask(IBinder locationListener) {
         mThreadPool.execute(() -> {
             BLocation lastLocation = null;
@@ -257,6 +404,7 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
                     continue;
                 }
 
+                // Skip duplicate location updates within 3 seconds
                 if (location.equals(lastLocation) && (System.currentTimeMillis() - l) < 3000) {
                     try {
                         Thread.sleep(1000);
@@ -271,6 +419,10 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         });
     }
 
+    /**
+     * Persists the current global and per-user location configurations to disk
+     * using atomic file writes.
+     */
     public void save() {
         synchronized (mGlobalConfig) {
             synchronized (mLocationConfigs) {
@@ -304,6 +456,10 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Loads location configuration from disk, restoring the global config and
+     * all per-user, per-package configs.
+     */
     public void loadConfig() {
         Parcel parcel = Parcel.obtain();
         InputStream is = null;
@@ -344,6 +500,10 @@ public class BLocationManagerService extends IBLocationManagerService.Stub imple
         }
     }
 
+    /**
+     * Called when the system is ready. Loads persisted configuration and
+     * restarts location update tasks for all active listeners.
+     */
     @Override
     public void systemReady() {
         loadConfig();

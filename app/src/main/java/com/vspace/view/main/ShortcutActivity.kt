@@ -6,6 +6,13 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.vcore.BlackBoxCore
 
+/**
+ * Transparent trampoline activity that launches an app inside the virtual environment
+ * when invoked from a home-screen shortcut.
+ *
+ * Reads the target package name ("pkg") and virtual user ID ("userId") from the
+ * launching intent, launches the app via [BlackBoxCore], and finishes immediately.
+ */
 class ShortcutActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

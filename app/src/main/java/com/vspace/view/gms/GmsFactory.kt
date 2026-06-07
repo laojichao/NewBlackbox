@@ -4,6 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.vspace.data.GmsRepository
 
+/**
+ * [ViewModelProvider.Factory] that creates [GmsViewModel] instances
+ * with the injected [GmsRepository].
+ *
+ * @property repo the repository to pass to [GmsViewModel].
+ */
 class GmsFactory(private val repo: GmsRepository) : ViewModelProvider.NewInstanceFactory() {
 
     @Suppress("UNCHECKED_CAST")

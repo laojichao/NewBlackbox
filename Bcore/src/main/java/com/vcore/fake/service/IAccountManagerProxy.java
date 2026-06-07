@@ -15,6 +15,9 @@ import com.vcore.fake.hook.BinderInvocationStub;
 import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 
+/**
+ * Proxy for IAccountManager system service that intercepts account management operations including get, set, add, remove accounts, and authentication token handling, redirecting them through the virtual environment's BAccountManager.
+ */
 public class IAccountManagerProxy extends BinderInvocationStub {
     public static final String TAG = "IAccountManagerProxy";
 
@@ -22,11 +25,22 @@ public class IAccountManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.ACCOUNT_SERVICE));
     }
 
+
+    /**
+     * Returns the IAccountManager binder interface from ServiceManager.
+     * @return the IAccountManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IAccountManager.Stub.asInterface.call(ServiceManager.getService.call(Context.ACCOUNT_SERVICE));
     }
 
+
+    /**
+     * Replaces the system ACCOUNT_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.ACCOUNT_SERVICE);
@@ -34,6 +48,11 @@ public class IAccountManagerProxy extends BinderInvocationStub {
 
 
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

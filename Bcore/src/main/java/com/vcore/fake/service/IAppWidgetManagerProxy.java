@@ -10,26 +10,54 @@ import com.vcore.fake.hook.BinderInvocationStub;
 import com.vcore.fake.service.base.ValueMethodProxy;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Proxy for IAppWidgetService system service that intercepts widget management operations including widget lifecycle, binding, and configuration, returning stub/default values for the virtual environment.
+ */
 public class IAppWidgetManagerProxy extends BinderInvocationStub {
     public IAppWidgetManagerProxy() {
         super(ServiceManager.getService.call(Context.APPWIDGET_SERVICE));
     }
 
+
+    /**
+     * Returns the IAppWidgetService binder interface from ServiceManager.
+     * @return the IAppWidgetService proxy instance
+     */
     @Override
     protected Object getWho() {
         return IAppWidgetService.Stub.asInterface.call(ServiceManager.getService.call(Context.APPWIDGET_SERVICE));
     }
 
+
+    /**
+     * Replaces the system APPWIDGET_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.APPWIDGET_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;
     }
 
+
+    /**
+     * Intercepts all method calls to replace package name arguments.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         MethodParameterUtils.replaceAllAppPkg(args);

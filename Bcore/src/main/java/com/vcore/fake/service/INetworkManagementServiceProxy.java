@@ -10,22 +10,41 @@ import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.fake.service.base.UidMethodProxy;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Proxy for INetworkManagementService system service that intercepts network management operations including cleartext network policy and metered network blacklist/whitelist, replacing UIDs and package names for the virtual environment.
+ */
 public class INetworkManagementServiceProxy extends BinderInvocationStub {
 
     public INetworkManagementServiceProxy() {
         super(ServiceManager.getService.call("network_management"));
     }
 
+
+    /**
+     * Returns the INetworkManagementService binder interface from ServiceManager.
+     * @return the INetworkManagementService proxy instance
+     */
     @Override
     protected Object getWho() {
         return INetworkManagementService.Stub.asInterface.call(ServiceManager.getService.call("network_management"));
     }
 
+
+    /**
+     * Replaces the network_management system service with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("network_management");
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

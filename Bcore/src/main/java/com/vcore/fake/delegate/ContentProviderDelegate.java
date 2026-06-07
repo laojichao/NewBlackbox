@@ -18,10 +18,32 @@ import com.vcore.fake.service.context.providers.ContentProviderStub;
 import com.vcore.fake.service.context.providers.SystemProviderStub;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Delegate class responsible for wrapping and managing ContentProvider instances
+ * within the virtual environment.
+ *
+ * <p>This class intercepts ContentProvider interactions to ensure that providers
+ * (including system providers like media, telephony, and settings) are properly
+ * wrapped with virtual environment proxies. It handles version-specific differences
+ * in how ContentProviderHolder works across Android API levels.</p>
+ *
+ * @see ContentProviderStub
+ * @see SystemProviderStub
+ */
 public class ContentProviderDelegate {
     public static final String TAG = "ContentProviderDelegate";
+
+    /** Set of provider names that have already been injected to avoid duplicate injection. */
     private static final Set<String> sInjected = new HashSet<>();
 
+    /**
+     * Updates a ContentProviderHolder's internal provider reference with a wrapped proxy.
+     * For system providers (media, telephony, settings), a {@link SystemProviderStub} is used;
+     * for other providers, a {@link ContentProviderStub} is used.
+     *
+     * @param holder the ContentProviderHolder object (API-level dependent type)
+     * @param auth   the authority of the content provider
+     */
     public static void update(Object holder, String auth) {
         IInterface iInterface;
         if (BuildCompat.isOreo()) {
@@ -53,6 +75,11 @@ public class ContentProviderDelegate {
         }
     }
 
+    /**
+     * Initializes all ContentProviders in the current activity thread by wrapping
+     * them with virtual environment proxies. Clears cached settings providers first
+     * to force fresh resolution.
+     */
     public static void init() {
         clearSettingProvider();
 
@@ -76,6 +103,10 @@ public class ContentProviderDelegate {
         }
     }
 
+    /**
+     * Clears cached ContentProvider references in the Settings system, secure, and global
+     * name-value caches to force fresh provider resolution.
+     */
     public static void clearSettingProvider() {
         Object cache;
         cache = Settings.System.sNameValueCache.get();
@@ -96,6 +127,12 @@ public class ContentProviderDelegate {
         }
     }
 
+    /**
+     * Clears the cached ContentProvider reference within a Settings NameValueCache object.
+     * Handles API-level differences between pre-Oreo and Oreo+ implementations.
+     *
+     * @param cache the NameValueCache object to clear
+     */
     private static void clearContentProvider(Object cache) {
         if (BuildCompat.isOreo()) {
             Object holder = Settings.NameValueCacheOreo.mProviderHolder.get(cache);

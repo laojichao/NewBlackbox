@@ -13,16 +13,44 @@ import java.util.Map;
 import com.vcore.app.BActivityThread;
 import com.vcore.proxy.record.ProxyBroadcastRecord;
 
+/**
+ * Delegate class that wraps an {@link IIntentReceiver} to intercept broadcast delivery
+ * within the virtual environment.
+ *
+ * <p>This class creates proxy instances of broadcast receivers that unwrap proxied
+ * intents before forwarding them to the original receiver. It maintains a cache of
+ * delegate instances keyed by the receiver's binder to avoid creating duplicates.
+ * Death recipients are registered to automatically clean up entries when the
+ * original receiver's process dies.</p>
+ *
+ * @see ProxyBroadcastRecord
+ */
 public class InnerReceiverDelegate extends IIntentReceiver.Stub {
     public static final String TAG = "InnerReceiverDelegate";
 
+    /** Cache of delegate instances keyed by the original receiver's binder. */
     private static final Map<IBinder, InnerReceiverDelegate> sInnerReceiverDelegate = new HashMap<>();
+
+    /** Weak reference to the original intent receiver to avoid preventing garbage collection. */
     private final WeakReference<IIntentReceiver> mIntentReceiver;
 
+    /**
+     * Private constructor to enforce creation through the static factory method.
+     *
+     * @param iIntentReceiver the original intent receiver to delegate to
+     */
     private InnerReceiverDelegate(IIntentReceiver iIntentReceiver) {
         this.mIntentReceiver = new WeakReference<>(iIntentReceiver);
     }
 
+    /**
+     * Creates a proxy for the given {@link IIntentReceiver}, reusing an existing delegate
+     * if one already exists for the same binder. If the receiver is already a delegate,
+     * it is returned as-is.
+     *
+     * @param base the original intent receiver to proxy
+     * @return a delegate that intercepts broadcast delivery, or the original if already delegated
+     */
     public static IIntentReceiver createProxy(IIntentReceiver base) {
         if (base instanceof InnerReceiverDelegate) {
             return base;
@@ -48,6 +76,18 @@ public class InnerReceiverDelegate extends IIntentReceiver.Stub {
         return delegate;
     }
 
+    /**
+     * Receives a broadcast intent, unwraps any proxied intent data, and forwards
+     * the (possibly original) intent to the wrapped receiver.
+     *
+     * @param intent        the broadcast intent being received
+     * @param resultCode    the result code
+     * @param data          the result data string
+     * @param extras        the extras bundle
+     * @param ordered       whether this is an ordered broadcast
+     * @param sticky        whether this is a sticky broadcast
+     * @param sendingUser   the user ID of the sender
+     */
     @Override
     public void performReceive(Intent intent, int resultCode, String data, Bundle extras, boolean ordered, boolean sticky, int sendingUser) {
         intent.setExtrasClassLoader(BActivityThread.getApplication().getClassLoader());

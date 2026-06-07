@@ -30,6 +30,27 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A custom {@link ContentProvider} that provides secure access to files within configured
+ * filesystem paths, similar to AndroidX's FileProvider but implemented for the virtual environment.
+ *
+ * <p>This provider maps between {@link File} objects and content {@link Uri}s using a
+ * {@link PathStrategy}. Path mappings are configured via XML meta-data in the provider's
+ * manifest declaration, supporting the following path tags:</p>
+ * <ul>
+ *   <li>{@code root-path} - maps to {@code /}</li>
+ *   <li>{@code files-path} - maps to {@link Context#getFilesDir()}</li>
+ *   <li>{@code cache-path} - maps to {@link Context#getCacheDir()}</li>
+ *   <li>{@code external-path} - maps to {@link Environment#getExternalStorageDirectory()}</li>
+ *   <li>{@code external-files-path} - maps to external files directory</li>
+ *   <li>{@code external-cache-path} - maps to external cache directory</li>
+ *   <li>{@code external-media-path} - maps to external media directory (API 21+)</li>
+ * </ul>
+ *
+ * <p>The provider enforces security by verifying that the provider is not exported and
+ * grants URI permissions. The {@link SimplePathStrategy} implementation prevents
+ * path traversal attacks by verifying resolved paths stay within configured roots.</p>
+ */
 public class FileProvider extends ContentProvider {
     private static final String[] COLUMNS = {
             OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE
@@ -56,7 +77,7 @@ public class FileProvider extends ContentProvider {
 
     /**
      * The default FileProvider implementation does not need to be initialized. If you want to
-     * override this method, you must provide your own subclass of 
+     * override this method, you must provide your own subclass of
      */
     @Override
     public boolean onCreate() {
@@ -109,6 +130,16 @@ public class FileProvider extends ContentProvider {
         return strategy.getUriForFile(file);
     }
 
+    /**
+     * Returns a {@link File} for the given content URI. The file must be within one of the
+     * configured path roots.
+     *
+     * @param context   the current context
+     * @param authority the authority of the FileProvider
+     * @param uri       the content URI to convert
+     * @return the corresponding File
+     * @throws IllegalArgumentException if the URI does not map to a valid file
+     */
     public static File getFileForUri(Context context, String authority, Uri uri) {
         final PathStrategy strategy = getPathStrategy(context, authority);
         return strategy.getFileForUri(uri);
@@ -117,7 +148,7 @@ public class FileProvider extends ContentProvider {
     /**
      * Use a content URI returned by
      * {@link #getUriForFile(Context, String, File) getUriForFile()} to get information about a file
-     * managed by the 
+     * managed by the
      * FileProvider reports the column names defined in {@link android.provider.OpenableColumns}:
      * <ul>
      * <li>{@link android.provider.OpenableColumns#DISPLAY_NAME}</li>
@@ -240,7 +271,7 @@ public class FileProvider extends ContentProvider {
      * {@link android.content.ContentResolver#openFileDescriptor(Uri, String)
      * ContentResolver.openFileDescriptor}.
      *
-     * To override this method, you must provide your own subclass of 
+     * To override this method, you must provide your own subclass of
      *
      * @param uri A content URI associated with a file, as returned by
      * {@link #getUriForFile(Context, String, File) getUriForFile()}.
@@ -379,6 +410,11 @@ public class FileProvider extends ContentProvider {
         private final String mAuthority;
         private final HashMap<String, File> mRoots = new HashMap<>();
 
+        /**
+         * Constructs a new SimplePathStrategy for the given authority.
+         *
+         * @param authority the content provider authority
+         */
         SimplePathStrategy(String authority) {
             mAuthority = authority;
         }
@@ -466,7 +502,11 @@ public class FileProvider extends ContentProvider {
     }
 
     /**
-     * Copied from ContentResolver.java
+     * Converts a file access mode string to the corresponding {@link ParcelFileDescriptor} mode bits.
+     *
+     * @param mode the access mode string ("r", "w", "wt", "wa", "rw", "rwt")
+     * @return the corresponding ParcelFileDescriptor mode bits
+     * @throws IllegalArgumentException if the mode is not recognized
      */
     private static int modeToMode(String mode) {
         int modeBits;
@@ -493,6 +533,13 @@ public class FileProvider extends ContentProvider {
         return modeBits;
     }
 
+    /**
+     * Builds a file path by appending segments to a base directory.
+     *
+     * @param base     the base directory
+     * @param segments path segments to append (null segments are skipped)
+     * @return the resulting file path
+     */
     private static File buildPath(File base, String... segments) {
         File cur = base;
         for (String segment : segments) {
@@ -503,12 +550,26 @@ public class FileProvider extends ContentProvider {
         return cur;
     }
 
+    /**
+     * Returns a copy of the given string array with the specified length.
+     *
+     * @param original the source array
+     * @param newLength the number of elements to copy
+     * @return a new array of the specified length
+     */
     private static String[] copyOf(String[] original, int newLength) {
         final String[] result = new String[newLength];
         System.arraycopy(original, 0, result, 0, newLength);
         return result;
     }
 
+    /**
+     * Returns a copy of the given object array with the specified length.
+     *
+     * @param original the source array
+     * @param newLength the number of elements to copy
+     * @return a new array of the specified length
+     */
     private static Object[] copyOf(Object[] original, int newLength) {
         final Object[] result = new Object[newLength];
         System.arraycopy(original, 0, result, 0, newLength);

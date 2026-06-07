@@ -42,13 +42,27 @@ import com.vcore.utils.ComponentUtils;
 import com.vcore.utils.Slog;
 import com.vcore.utils.compat.ActivityManagerCompat;
 
+/**
+ * Manages the virtual activity stack and handles activity launch modes within the virtual environment.
+ *
+ * <p>This class implements the activity management logic for the virtual container, including
+ * task affinity resolution, launch mode handling (standard, singleTop, singleTask, singleInstance),
+ * and activity lifecycle callbacks. Activities are launched through proxy activities in the host
+ * process, with theme detection for transparent activities.</p>
+ */
 public class ActivityStack {
     public static final String TAG = "ActivityStack";
 
+    /** The system ActivityManager used for task operations. */
     private final ActivityManager mAms;
+
+    /** Maps task IDs to their TaskRecord, maintaining insertion order. */
     private final Map<Integer, TaskRecord> mTasks = new LinkedHashMap<>();
+
+    /** Maps activity tokens to ActivityRecords for activities currently being launched. */
     private final Map<String, ActivityRecord> mLaunchingActivities = new HashMap<>();
 
+    /** Message ID for launch timeout handler. */
     public static final int LAUNCH_TIME_OUT = 0;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper()) {
@@ -63,14 +77,36 @@ public class ActivityStack {
         }
     };
 
+    /**
+     * Creates a new ActivityStack instance and initializes the system ActivityManager.
+     */
     public ActivityStack() {
         this.mAms = (ActivityManager) BlackBoxCore.getContext().getSystemService(Context.ACTIVITY_SERVICE);
     }
 
+    /**
+     * Checks whether an intent contains a specific flag.
+     *
+     * @param intent the intent to check
+     * @param flag   the flag bit to test
+     * @return true if the intent contains the specified flag
+     */
     public boolean containsFlag(Intent intent, int flag) {
         return (intent.getFlags() & flag) != 0;
     }
 
+    /**
+     * Starts multiple activities sequentially within the virtual environment.
+     *
+     * @param userId        the virtual user ID
+     * @param intents       array of intents to start
+     * @param resolvedTypes array of resolved MIME types corresponding to each intent
+     * @param resultTo      the token of the activity receiving the result
+     * @param options       additional launch options bundle
+     * @return always returns 0
+     * @throws NullPointerException     if intents or resolvedTypes is null
+     * @throws IllegalArgumentException if intents and resolvedTypes have different lengths
+     */
     public int startActivitiesLocked(int userId, Intent[] intents, String[] resolvedTypes, IBinder resultTo, Bundle options) {
         if (intents == null) {
             throw new NullPointerException("intents is null");
@@ -90,6 +126,24 @@ public class ActivityStack {
         return 0;
     }
 
+    /**
+     * Starts a single activity within the virtual environment, handling all launch modes.
+     *
+     * <p>This method resolves the activity, determines the appropriate task based on task affinity
+     * and launch mode flags, and either launches into an existing task, creates a new task,
+     * or delivers a new intent to an existing activity instance. Supports all standard
+     * Android launch modes: standard, singleTop, singleTask, and singleInstance.</p>
+     *
+     * @param userId       the virtual user ID
+     * @param intent       the intent describing the activity to start
+     * @param resolvedType the resolved MIME type of the intent
+     * @param resultTo     the token of the activity receiving the result
+     * @param resultWho    the identifier of the result recipient
+     * @param requestCode  the request code for startActivityForResult, or -1 if not used
+     * @param flags        additional flags for the activity launch
+     * @param options      additional launch options bundle
+     * @return always returns 0
+     */
     public int startActivityLocked(int userId, Intent intent, String resolvedType, IBinder resultTo, String resultWho, int requestCode, int flags, Bundle options) {
         synchronized (mTasks) {
             synchronizeTasks();
@@ -239,6 +293,12 @@ public class ActivityStack {
                 launchModeFlags);
     }
 
+    /**
+     * Delivers a new intent notification to an existing activity via its activity thread.
+     *
+     * @param activityRecord the activity record to receive the new intent
+     * @param intent         the new intent to deliver
+     */
     private void deliverNewIntentLocked(ActivityRecord activityRecord, Intent intent) {
         try {
             Objects.requireNonNull(activityRecord.processRecord).bActivityThread.handleNewIntent(activityRecord.token, intent);
@@ -247,6 +307,16 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Starts the target activity's process and returns a stub intent for launching via proxy.
+     *
+     * @param userId  the virtual user ID
+     * @param intent  the original activity intent
+     * @param info    the resolved ActivityInfo
+     * @param record  the ActivityRecord for the activity being launched
+     * @return a stub intent pointing to the proxy activity in the host
+     * @throws RuntimeException if the target process cannot be created
+     */
     private Intent startActivityProcess(int userId, Intent intent, ActivityInfo info, ActivityRecord record) {
         ProxyActivityRecord stubRecord = new ProxyActivityRecord(userId, info, intent, record.mBToken);
         ProcessRecord targetApp = BProcessManagerService.get().startProcessLocked(info.packageName, info.processName, userId, -1, Binder.getCallingPid());
@@ -256,6 +326,16 @@ public class ActivityStack {
         return getStartStubActivityIntentInner(intent, targetApp.bPID, stubRecord, info);
     }
 
+    /**
+     * Starts an activity in a new task with NEW_TASK, MULTIPLE_TASK, and NEW_DOCUMENT flags.
+     *
+     * @param userId       the virtual user ID
+     * @param intent       the original activity intent
+     * @param activityInfo the resolved ActivityInfo
+     * @param resultTo     the token of the calling activity
+     * @param launchMode   additional launch mode flags
+     * @return always returns 0
+     */
     private int startActivityInNewTaskLocked(int userId, Intent intent, ActivityInfo activityInfo, IBinder resultTo, int launchMode) {
         ActivityRecord record = newActivityRecord(intent, activityInfo, resultTo, userId);
         Intent shadow = startActivityProcess(userId, intent, activityInfo, record);
@@ -269,6 +349,22 @@ public class ActivityStack {
         return 0;
     }
 
+    /**
+     * Starts an activity within the source task by delegating to the real activity manager.
+     *
+     * @param intent          the original activity intent
+     * @param resolvedType    the resolved MIME type
+     * @param resultTo        the token of the activity receiving the result
+     * @param resultWho       the identifier of the result recipient
+     * @param requestCode     the request code for startActivityForResult
+     * @param flags           additional launch flags
+     * @param options         additional launch options
+     * @param userId          the virtual user ID
+     * @param sourceRecord    the source activity record
+     * @param activityInfo    the resolved ActivityInfo
+     * @param launchMode      additional launch mode flags
+     * @return always returns 0
+     */
     private int startActivityInSourceTask(Intent intent, String resolvedType, IBinder resultTo, String resultWho, int requestCode, int flags, Bundle options,
                                           int userId, ActivityRecord sourceRecord, ActivityInfo activityInfo, int launchMode) {
         ActivityRecord selfRecord = newActivityRecord(intent, activityInfo, resultTo, userId);
@@ -281,6 +377,20 @@ public class ActivityStack {
         return realStartActivityLocked(Objects.requireNonNull(sourceRecord.processRecord).appThread, shadow, resolvedType, resultTo, resultWho, requestCode, flags, options);
     }
 
+    /**
+     * Performs the actual activity start by invoking the system's IActivityManager.
+     * Strips debug-related flags before the call.
+     *
+     * @param appThread    the application thread interface of the target process
+     * @param intent       the stub intent to start
+     * @param resolvedType the resolved MIME type
+     * @param resultTo     the result recipient token
+     * @param resultWho    the result recipient identifier
+     * @param requestCode  the request code
+     * @param flags        launch flags (debug flags will be stripped)
+     * @param options      additional launch options
+     * @return always returns 0
+     */
     private int realStartActivityLocked(IInterface appThread, Intent intent, String resolvedType, IBinder resultTo, String resultWho, int requestCode, int flags,
                                         Bundle options) {
         try {
@@ -295,6 +405,16 @@ public class ActivityStack {
         return 0;
     }
 
+    /**
+     * Creates a stub activity intent, detecting whether the target activity uses a transparent
+     * theme to select the appropriate proxy activity (transparent or standard).
+     *
+     * @param intent         the original activity intent
+     * @param vPID           the virtual process ID for proxy selection
+     * @param target         the ProxyActivityRecord containing activity metadata
+     * @param activityInfo   the resolved ActivityInfo for theme inspection
+     * @return a stub intent configured to launch the appropriate proxy activity
+     */
     private Intent getStartStubActivityIntentInner(Intent intent, int vPID, ProxyActivityRecord target, ActivityInfo activityInfo) {
         Intent shadow = new Intent();
         TypedArray typedArray = null;
@@ -330,6 +450,11 @@ public class ActivityStack {
         return shadow;
     }
 
+    /**
+     * Finishes all activities marked as finished for the given user by notifying their processes.
+     *
+     * @param userId the virtual user ID
+     */
     private void finishAllActivity(int userId) {
         for (TaskRecord task : mTasks.values()) {
             for (ActivityRecord activity : task.activities) {
@@ -345,6 +470,15 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Creates a new ActivityRecord and registers it in the launching activities map with a timeout.
+     *
+     * @param intent   the activity intent
+     * @param info     the resolved ActivityInfo
+     * @param resultTo the token of the calling activity
+     * @param userId   the virtual user ID
+     * @return the newly created ActivityRecord
+     */
     ActivityRecord newActivityRecord(Intent intent, ActivityInfo info, IBinder resultTo, int userId) {
         ActivityRecord targetRecord = ActivityRecord.create(intent, info, resultTo, userId);
         synchronized (mLaunchingActivities) {
@@ -355,6 +489,13 @@ public class ActivityStack {
         return targetRecord;
     }
 
+    /**
+     * Finds an activity record by its component name for the given user.
+     *
+     * @param userId      the virtual user ID
+     * @param componentName the component name to search for
+     * @return the matching ActivityRecord, or null if not found
+     */
     private ActivityRecord findActivityRecordByComponentName(int userId, ComponentName componentName) {
         ActivityRecord record = null;
         for (TaskRecord next : mTasks.values()) {
@@ -370,6 +511,13 @@ public class ActivityStack {
         return record;
     }
 
+    /**
+     * Finds an activity record by its binder token for the given user.
+     *
+     * @param userId the virtual user ID
+     * @param token  the IBinder token to search for
+     * @return the matching ActivityRecord, or null if not found
+     */
     private ActivityRecord findActivityRecordByToken(int userId, IBinder token) {
         ActivityRecord record = null;
         if (token != null) {
@@ -387,6 +535,13 @@ public class ActivityStack {
         return record;
     }
 
+    /**
+     * Finds a task record by its task affinity for the given user.
+     *
+     * @param userId      the virtual user ID
+     * @param taskAffinity the task affinity string to match
+     * @return the matching TaskRecord, or null if not found
+     */
     private TaskRecord findTaskRecordByTaskAffinityLocked(int userId, String taskAffinity) {
         synchronized (mTasks) {
             for (TaskRecord next : mTasks.values()) {
@@ -398,6 +553,15 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Called when an activity is created. Registers the activity in the appropriate task
+     * and removes it from the launching activities map.
+     *
+     * @param processRecord the process hosting the activity
+     * @param taskId        the system task ID
+     * @param token         the activity's IBinder token
+     * @param activityToken the unique activity launch token
+     */
     public void onActivityCreated(ProcessRecord processRecord, int taskId, IBinder
             token, String activityToken) {
         ActivityRecord record = mLaunchingActivities.get(activityToken);
@@ -427,6 +591,12 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Called when an activity is resumed. Moves the activity to the top of its task stack.
+     *
+     * @param userId the virtual user ID
+     * @param token  the activity's IBinder token
+     */
     // FIXME: Multiple activities belonged to same app.
     public void onActivityResumed(int userId, IBinder token) {
         synchronized (mTasks) {
@@ -444,6 +614,12 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Called when an activity is destroyed. Marks it as finished and removes it from its task.
+     *
+     * @param userId the virtual user ID
+     * @param token  the activity's IBinder token
+     */
     public void onActivityDestroyed(int userId, IBinder token) {
         synchronized (mTasks) {
             synchronizeTasks();
@@ -460,6 +636,12 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Called when an activity finishes. Marks the activity as finished.
+     *
+     * @param userId the virtual user ID
+     * @param token  the activity's IBinder token
+     */
     public void onFinishActivity(int userId, IBinder token) {
         synchronized (mTasks) {
             synchronizeTasks();
@@ -473,6 +655,13 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Returns the package name of the activity that started the given activity.
+     *
+     * @param token  the IBinder token of the activity
+     * @param userId the virtual user ID
+     * @return the calling package name, or the host package name if not found
+     */
     public String getCallingPackage(IBinder token, int userId) {
         synchronized (mTasks) {
             synchronizeTasks();
@@ -487,6 +676,13 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Returns the component name of the activity that started the given activity.
+     *
+     * @param token  the IBinder token of the activity
+     * @param userId the virtual user ID
+     * @return the calling activity's ComponentName, or a default proxy activity if not found
+     */
     public ComponentName getCallingActivity(IBinder token, int userId) {
         synchronized (mTasks) {
             synchronizeTasks();
@@ -501,6 +697,12 @@ public class ActivityStack {
         }
     }
 
+    /**
+     * Synchronizes the internal task list with the system's recent tasks.
+     *
+     * <p>Queries the system for recent tasks and reorders the internal task map
+     * to match the system's ordering, removing any tasks that no longer exist in the system.</p>
+     */
     private void synchronizeTasks() {
         List<ActivityManager.RecentTaskInfo> recentTasks = mAms.getRecentTasks(100, 0);
         Map<Integer, TaskRecord> newTacks = new LinkedHashMap<>();

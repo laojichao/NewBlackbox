@@ -18,6 +18,9 @@ import com.vcore.fake.service.base.UidMethodProxy;
 import com.vcore.utils.MethodParameterUtils;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Proxy for IPermissionManager system service (Android 10+) that intercepts permission management operations including runtime permission grants, permission flag queries, and permission checks, replacing package names and UIDs for the virtual environment.
+ */
 public class IPermissionManagerProxy extends BinderInvocationStub {
     public static final String TAG = "IPermissionManagerProxy";
 
@@ -25,11 +28,22 @@ public class IPermissionManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call("permissionmgr"));
     }
 
+
+    /**
+     * Returns the IPermissionManager binder interface from ServiceManager.
+     * @return the IPermissionManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IPermissionManager.Stub.asInterface.call(ServiceManager.getService.call("permissionmgr"));
     }
 
+
+    /**
+     * Replaces the permissionmgr system service, ActivityThread.sPermissionManager, and the ApplicationPackageManager permission manager reference.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("permissionmgr");
@@ -86,6 +100,11 @@ public class IPermissionManagerProxy extends BinderInvocationStub {
         }
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

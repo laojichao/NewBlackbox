@@ -26,6 +26,9 @@ import com.vcore.fake.service.context.LocationListenerProxy;
 import com.vcore.utils.MethodParameterUtils;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Proxy for ILocationManager system service that intercepts location-related operations including location listener registration, last/current location queries, GPS status callbacks, and provider queries, enabling fake location injection when virtual location is enabled.
+ */
 public class ILocationManagerProxy extends BinderInvocationStub {
     public static final String TAG = "ILocationManagerProxy";
 
@@ -33,22 +36,47 @@ public class ILocationManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.LOCATION_SERVICE));
     }
 
+
+    /**
+     * Returns the ILocationManager binder interface from ServiceManager.
+     * @return the ILocationManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return ILocationManager.Stub.asInterface.call(ServiceManager.getService.call(Context.LOCATION_SERVICE));
     }
 
+
+    /**
+     * Replaces the system LOCATION_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.LOCATION_SERVICE);
 
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;
     }
 
+
+    /**
+     * Intercepts all method calls to replace the first package name argument.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         MethodParameterUtils.replaceFirstAppPkg(args);

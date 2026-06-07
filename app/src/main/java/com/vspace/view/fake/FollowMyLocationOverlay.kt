@@ -21,9 +21,20 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 
+/**
+ * Activity that displays an interactive OpenStreetMap (osmdroid) for selecting
+ * a fake GPS coordinate. The user taps the map to place a marker; pressing
+ * back returns the selected [GeoPoint] as the activity result.
+ *
+ * Receives an optional initial [BLocation] via the "location" intent extra
+ * and the target package name via the "pkg" extra.
+ *
+ * On finish, returns RESULT_OK with "latitude" and "longitude" extras.
+ */
 class FollowMyLocationOverlay : AppCompatActivity() {
     private val REQUEST_PERMISSIONS_REQUEST_CODE = 1
     private val binding: ActivityOsmdroidBinding by inflate()
+    /** The currently selected map point; returned as the result on back press. */
     lateinit var startPoint: GeoPoint
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -44,6 +55,7 @@ class FollowMyLocationOverlay : AppCompatActivity() {
         // inflate and create the map
         setContentView(binding.root)
 
+        // Read the initial location from the intent, handling API-level parcelable differences
         val location: BLocation? = if (BuildCompat.isT()) {
             intent.getParcelableExtra("location", BLocation::class.java)
         } else {
@@ -51,6 +63,7 @@ class FollowMyLocationOverlay : AppCompatActivity() {
         }
 
         startPoint = if (location == null) {
+            // Default to Hangzhou, China if no prior location is set
             GeoPoint(30.2736, 120.1563)
         } else {
             GeoPoint(location.latitude, location.longitude)
@@ -61,6 +74,7 @@ class FollowMyLocationOverlay : AppCompatActivity() {
         startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
         binding.map.overlays.add(startMarker)
+        // Handle map tap events: move the marker to the tapped location
         val mReceive: MapEventsReceiver = object : MapEventsReceiver {
             override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
                 startPoint = p
@@ -125,6 +139,12 @@ class FollowMyLocationOverlay : AppCompatActivity() {
         }
     }
 
+    /**
+     * Sets the activity result with the selected latitude/longitude and finishes,
+     * also hiding the soft keyboard if visible.
+     *
+     * @param geoPoint the [GeoPoint] chosen by the user on the map.
+     */
     private fun finishWithResult(geoPoint: GeoPoint) {
         intent.putExtra("latitude", geoPoint.latitude)
         intent.putExtra("longitude", geoPoint.longitude)

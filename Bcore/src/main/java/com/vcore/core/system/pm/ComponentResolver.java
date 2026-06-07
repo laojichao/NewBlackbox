@@ -14,9 +14,17 @@ import java.util.List;
 
 import com.vcore.utils.Slog;
 
+/**
+ * Resolves intents to package components (activities, services, providers, receivers).
+ *
+ * <p>This class maintains separate intent resolvers for each component type and provides
+ * methods to query, add, and remove components. It handles provider authority deduplication
+ * and delegates to typed inner resolvers for intent-based lookups.</p>
+ */
 public class ComponentResolver {
     public static final String TAG = "ComponentResolver";
 
+    /** Lock for synchronizing component access. */
     private final Object mLock = new Object();
 
     /**
@@ -43,8 +51,16 @@ public class ComponentResolver {
      */
     private final ArrayMap<String, BPackage.Provider> mProvidersByAuthority = new ArrayMap<>();
 
+    /**
+     * Constructs a new ComponentResolver.
+     */
     public ComponentResolver() { }
 
+    /**
+     * Registers all components (activities, services, providers, receivers) from a package.
+     *
+     * @param pkg the package whose components should be registered
+     */
     void addAllComponents(BPackage pkg) {
         final ArrayList<BPackage.ActivityIntentInfo> newIntents = new ArrayList<>();
         synchronized (mLock) {
@@ -55,6 +71,11 @@ public class ComponentResolver {
         }
     }
 
+    /**
+     * Removes all components registered from a package.
+     *
+     * @param pkg the package whose components should be removed
+     */
     void removeAllComponents(BPackage pkg) {
         synchronized (mLock) {
             removeAllComponentsLocked(pkg);

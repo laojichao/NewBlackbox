@@ -71,16 +71,42 @@ import com.vcore.fake.service.libcore.OsProxy;
 import com.vcore.utils.Slog;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Central manager for registering and applying all system service hooks in the virtual environment.
+ *
+ * <p>This class maintains a registry of {@link IInjectHook} implementations, each responsible for
+ * hooking a specific system service (e.g., ActivityManager, PackageManager, LocationManager).
+ * During initialization, it registers all required hooks based on the current Android API level
+ * and OEM-specific services, then applies them by calling {@link IInjectHook#injectHook()} on each.</p>
+ *
+ * <p>The manager uses the singleton pattern and should be accessed via {@link #get()}.</p>
+ *
+ * @see IInjectHook
+ * @see BinderInvocationStub
+ */
 public class HookManager {
     public static final String TAG = "HookManager";
 
     private static final HookManager sHookManager = new HookManager();
     private final Map<Class<?>, IInjectHook> mInjectors = new HashMap<>();
 
+    /**
+     * Returns the singleton instance of {@link HookManager}.
+     *
+     * @return the global HookManager instance
+     */
     public static HookManager get() {
         return sHookManager;
     }
 
+    /**
+     * Initializes and registers all system service hooks.
+     *
+     * <p>Hooks are only registered when running in a black (virtual) process or server process.
+     * Version-specific hooks are conditionally registered based on the current Android API level.
+     * OEM-specific hooks (e.g., Flyme, Vivo) are registered only if the corresponding service
+     * type is available. After all hooks are registered, {@link #injectAll()} is called to apply them.</p>
+     */
     public void init() {
         if (BlackBoxCore.get().isBlackProcess() || BlackBoxCore.get().isServerProcess()) {
             addInjector(new IDisplayManagerProxy());
@@ -191,6 +217,13 @@ public class HookManager {
         injectAll();
     }
 
+    /**
+     * Checks the environment for a specific hook class and re-injects it if the environment
+     * has become invalid (e.g., another framework has overwritten the hook).
+     *
+     * @param clazz the hook class to check
+     * @see IInjectHook#isBadEnv()
+     */
     public void checkEnv(Class<?> clazz) {
         IInjectHook iInjectHook = mInjectors.get(clazz);
         if (iInjectHook != null && iInjectHook.isBadEnv()) {
@@ -199,10 +232,20 @@ public class HookManager {
         }
     }
 
+    /**
+     * Registers an {@link IInjectHook} implementation in the manager's registry.
+     *
+     * @param injectHook the hook to register
+     */
     void addInjector(IInjectHook injectHook) {
         mInjectors.put(injectHook.getClass(), injectHook);
     }
 
+    /**
+     * Applies all registered hooks by calling {@link IInjectHook#injectHook()} on each.
+     * Errors during individual hook injection are caught and logged without stopping
+     * the injection of remaining hooks.
+     */
     void injectAll() {
         for (IInjectHook value : mInjectors.values()) {
             try {

@@ -29,6 +29,9 @@ import com.vcore.proxy.record.ProxyActivityRecord;
 import com.vcore.utils.Slog;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Proxy for ActivityThread.H (Handler.Callback) that intercepts the main thread message handler to intercept LAUNCH_ACTIVITY and CREATE_SERVICE messages, redirecting them through the virtual environment for proper activity and service lifecycle management.
+ */
 public class HCallbackProxy implements IInjectHook, Handler.Callback {
     public static final String TAG = "HCallbackProxy";
     private Handler.Callback mOtherCallback;
@@ -43,6 +46,10 @@ public class HCallbackProxy implements IInjectHook, Handler.Callback {
         return ActivityThread.mH.get(currentActivityThread);
     }
 
+
+    /**
+     * Installs this callback into ActivityThread.mH, replacing any existing Handler.Callback.
+     */
     @Override
     public void injectHook() {
         mOtherCallback = getHCallback();
@@ -52,12 +59,24 @@ public class HCallbackProxy implements IInjectHook, Handler.Callback {
         black.android.os.Handler.mCallback.set(getH(), this);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised by verifying the H.Callback has not been replaced.
+     * @return true if the current H.Callback is not this instance
+     */
     @Override
     public boolean isBadEnv() {
         Handler.Callback hCallback = getHCallback();
         return hCallback != null && hCallback != this;
     }
 
+
+    /**
+     * Intercepts LAUNCH_ACTIVITY/EXECUTE_TRANSACTION and CREATE_SERVICE messages to redirect
+     * activity and service creation through the virtual environment.
+     * @param msg the message to handle
+     * @return true if the message was consumed, false otherwise
+     */
     @Override
     public boolean handleMessage(@NonNull Message msg) {
         if (!mBeing.getAndSet(true)) {

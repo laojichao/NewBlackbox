@@ -16,6 +16,13 @@ import com.vcore.entity.pm.InstallOption;
 import com.vcore.utils.CloseUtils;
 import com.vcore.utils.FileUtils;
 
+/**
+ * Represents the settings and metadata for an installed package in the virtual environment.
+ *
+ * <p>Contains the package reference, app ID, install options, and per-user installation
+ * state. Supports serialization to/from Parcel for IPC and persistence to disk via
+ * {@link #save()}. Handles Xposed module visibility across users when the module is enabled.</p>
+ */
 public class BPackageSettings implements Parcelable {
     public BPackage pkg;
     public int appId;
@@ -24,26 +31,63 @@ public class BPackageSettings implements Parcelable {
 
     public BPackageSettings() { }
 
+    /**
+     * Returns a copy of the per-user installation states.
+     *
+     * @return a list of all {@link BPackageUserState} entries
+     */
     public List<BPackageUserState> getUserState() {
         return new ArrayList<>(userState.values());
     }
 
+    /**
+     * Returns a list of user IDs that have this package installed.
+     *
+     * @return a list of virtual user IDs
+     */
     public List<Integer> getUserIds() {
         return new ArrayList<>(userState.keySet());
     }
 
+    /**
+     * Sets the installed state for the given user.
+     *
+     * @param inst   true to mark as installed, false otherwise
+     * @param userId the virtual user ID
+     */
     public void setInstalled(boolean inst, int userId) {
         modifyUserState(userId).installed = inst;
     }
 
+    /**
+     * Returns whether this package is installed for the given user.
+     *
+     * @param userId the virtual user ID
+     * @return true if the package is installed for the user
+     */
     public boolean getInstalled(int userId) {
         return readUserState(userId).installed;
     }
 
+    /**
+     * Removes the user state entry for the given user ID.
+     *
+     * @param userId the virtual user ID to remove
+     */
     public void removeUser(int userId) {
         userState.remove(userId);
     }
 
+    /**
+     * Reads the user state for the given user ID, returning a copy.
+     *
+     * <p>For Xposed modules that are enabled and Xposed is active, the package is
+     * marked as installed for all users. Packages queried with USER_ALL are also
+     * always marked as installed.</p>
+     *
+     * @param userId the virtual user ID
+     * @return a copy of the {@link BPackageUserState} for the user
+     */
     public BPackageUserState readUserState(int userId) {
         BPackageUserState state = userState.get(userId);
         if (state == null) {
@@ -73,6 +117,10 @@ public class BPackageSettings implements Parcelable {
         return state;
     }
 
+    /**
+     * Saves the package settings to disk using Parcel serialization with AtomicFile.
+     * Uses atomic write semantics to prevent corruption on failure.
+     */
     public void save() {
         synchronized (this) {
             Parcel parcel = Parcel.obtain();

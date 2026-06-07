@@ -30,21 +30,50 @@ import com.vcore.entity.am.RunningAppProcessInfo;
 import com.vcore.entity.am.RunningServiceInfo;
 import com.vcore.utils.Slog;
 
+/**
+ * Virtual Activity Manager Service that manages activities, services, broadcasts, and content
+ * providers within the virtual environment.
+ *
+ * <p>This class acts as the central coordinator for all activity management operations in the
+ * virtual container. It delegates to per-user {@link UserSpace} instances which contain
+ * {@link ActiveServices}, {@link ActivityStack}, and pending intent records. All IPC calls
+ * are routed through this service via the {@link IBActivityManagerService} AIDL interface.</p>
+ */
 public class BActivityManagerService extends IBActivityManagerService.Stub implements ISystemService {
     public static final String TAG = "BActivityManagerService";
+
+    /** Singleton instance of the service. */
     private static final BActivityManagerService sService = new BActivityManagerService();
+
+    /** Maps virtual user IDs to their isolated UserSpace instances. */
     private final Map<Integer, UserSpace> mUserSpace = new HashMap<>();
+
+    /** The broadcast manager for handling virtual broadcasts. */
     private final BroadcastManager mBroadcastManager;
 
+    /**
+     * Returns the singleton instance of the service.
+     *
+     * @return the global {@link BActivityManagerService} instance
+     */
     public static BActivityManagerService get() {
         return sService;
     }
 
+    /**
+     * Constructs the service, initializing the package manager and broadcast manager.
+     */
     public BActivityManagerService() {
         BPackageManagerService mPms = BPackageManagerService.get();
         this.mBroadcastManager = BroadcastManager.startSystem(mPms);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Starts a service within the virtual environment by delegating to the user's
+     * ActiveServices instance.</p>
+     */
     @Override
     public ComponentName startService(Intent intent, String resolvedType, boolean requireForeground, int userId) {
         UserSpace userSpace = getOrCreateSpaceLocked(userId);
@@ -54,6 +83,12 @@ public class BActivityManagerService extends IBActivityManagerService.Stub imple
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Acquires a content provider client by starting the provider's process and
+     * requesting the provider from its activity thread.</p>
+     */
     @Override
     public IBinder acquireContentProviderClient(ProviderInfo providerInfo) {
         int callingPid = Binder.getCallingPid();
@@ -71,6 +106,12 @@ public class BActivityManagerService extends IBActivityManagerService.Stub imple
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Resolves broadcast receivers and ensures their processes are bound before
+     * returning a shadow intent targeting the host package.</p>
+     */
     @Override
     public Intent sendBroadcast(Intent intent, String resolvedType, int userId) {
         List<ResolveInfo> resolves = BPackageManagerService.get().queryBroadcastReceivers(intent, GET_META_DATA, resolvedType, userId);
@@ -352,6 +393,12 @@ public class BActivityManagerService extends IBActivityManagerService.Stub imple
         }
     }
 
+    /**
+     * Returns or creates the UserSpace for the given virtual user ID.
+     *
+     * @param userId the virtual user ID
+     * @return the existing or newly created {@link UserSpace} instance
+     */
     private UserSpace getOrCreateSpaceLocked(int userId) {
         synchronized (mUserSpace) {
             UserSpace userSpace = mUserSpace.get(userId);
@@ -365,6 +412,11 @@ public class BActivityManagerService extends IBActivityManagerService.Stub imple
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Starts the broadcast manager to begin processing virtual broadcasts.</p>
+     */
     @Override
     public void systemReady() {
         mBroadcastManager.startup();

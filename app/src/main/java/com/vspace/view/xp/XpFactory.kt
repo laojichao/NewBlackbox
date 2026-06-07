@@ -4,6 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.vspace.data.XpRepository
 
+/**
+ * [ViewModelProvider.Factory] that creates [XpViewModel] instances
+ * with the injected [XpRepository].
+ *
+ * @property repo the repository to pass to [XpViewModel].
+ */
 @Suppress("UNCHECKED_CAST")
 class XpFactory(private val repo: XpRepository) : ViewModelProvider.NewInstanceFactory() {
 

@@ -13,6 +13,9 @@ import com.vcore.fake.hook.BinderInvocationStub;
 import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 
+/**
+ * Proxy for IJobScheduler system service that intercepts job scheduling operations (schedule, cancel, cancelAll, enqueue), redirecting them through the virtual environment's BJobManager.
+ */
 public class IJobServiceProxy extends BinderInvocationStub {
     public static final String TAG = "JobServiceStub";
 
@@ -20,11 +23,22 @@ public class IJobServiceProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.JOB_SCHEDULER_SERVICE));
     }
 
+
+    /**
+     * Returns the IJobScheduler binder interface from ServiceManager.
+     * @return the IJobScheduler proxy instance
+     */
     @Override
     protected Object getWho() {
         return IJobScheduler.Stub.asInterface.call(ServiceManager.getService.call(Context.JOB_SCHEDULER_SERVICE));
     }
 
+
+    /**
+     * Replaces the system JOB_SCHEDULER_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -79,6 +93,11 @@ public class IJobServiceProxy extends BinderInvocationStub {
         }
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

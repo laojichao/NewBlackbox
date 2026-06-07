@@ -23,18 +23,49 @@ import com.vcore.core.system.user.BUserHandle;
 import com.vcore.core.system.user.BUserManagerService;
 import com.vcore.entity.pm.InstallOption;
 
+/**
+ * The central system bootstrap class for BlackBox.
+ * <p>
+ * Initializes and registers all core system services (package manager, user manager,
+ * activity manager, etc.), invokes their {@code systemReady()} lifecycle callbacks,
+ * and handles pre-installation of configured packages. Ensures single-startup via
+ * an {@link AtomicBoolean} guard.
+ */
 public class BlackBoxSystem {
+    /** Ordered list of all registered system services. */
     private final List<ISystemService> mServices = new ArrayList<>();
+
+    /** Atomic flag ensuring the system is started only once. */
     private final static AtomicBoolean isStartup = new AtomicBoolean(false);
 
+    /**
+     * Lazy holder for the singleton BlackBoxSystem instance.
+     */
     private static final class SBlackBoxSystemHolder {
         static final BlackBoxSystem sBlackBoxSystem = new BlackBoxSystem();
     }
 
+    /**
+     * Returns the singleton BlackBoxSystem instance.
+     *
+     * @return the BlackBoxSystem instance
+     */
     public static BlackBoxSystem getSystem() {
         return SBlackBoxSystemHolder.sBlackBoxSystem;
     }
 
+    /**
+     * Boots the BlackBox system. This method is idempotent -- calling it multiple
+     * times has no effect after the first successful invocation.
+     * <p>
+     * Performs the following steps:
+     * <ol>
+     *   <li>Loads the BEnvironment configuration.</li>
+     *   <li>Registers all core system services.</li>
+     *   <li>Calls {@code systemReady()} on each registered service.</li>
+     *   <li>Pre-installs any packages defined in {@link AppSystemEnv#getPreInstallPackages()}.</li>
+     * </ol>
+     */
     public void startup() {
         if (isStartup.getAndSet(true)) {
             return;

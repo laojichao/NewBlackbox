@@ -16,6 +16,9 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.Md5Utils;
 
+/**
+ * Proxy for ITelephony system service that intercepts telephony operations including device ID (IMEI/MEID), subscriber ID, cell location, network info, and neighboring cell queries, returning spoofed or hashed values for the virtual environment.
+ */
 public class ITelephonyManagerProxy extends BinderInvocationStub {
     public static final String TAG = "ITelephonyManagerProxy";
 
@@ -23,16 +26,32 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.TELEPHONY_SERVICE));
     }
 
+
+    /**
+     * Returns the ITelephony binder interface from ServiceManager.
+     * @return the ITelephony proxy instance
+     */
     @Override
     protected Object getWho() {
         return ITelephony.Stub.asInterface.call(ServiceManager.getService.call(Context.TELEPHONY_SERVICE));
     }
 
+
+    /**
+     * Replaces the system TELEPHONY_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.TELEPHONY_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

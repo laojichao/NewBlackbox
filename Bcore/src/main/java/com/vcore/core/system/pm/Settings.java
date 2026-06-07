@@ -24,14 +24,31 @@ import com.vcore.utils.FileUtils;
 import com.vcore.utils.Slog;
 import com.vcore.utils.compat.PackageParserCompat;
 
+/**
+ * Manages package settings, UID allocation, and package persistence in the virtual environment.
+ *
+ * <p>This class handles the lifecycle of {@link BPackageSettings} entries including
+ * UID registration, package scanning from disk, and package configuration persistence.
+ * It coordinates with {@link SharedUserSetting} for shared UID management.</p>
+ */
 /*public*/ class Settings {
     public static final String TAG = "Settings";
 
+    /** Map of package names to their settings. */
     final ArrayMap<String, BPackageSettings> mPackages = new ArrayMap<>();
+
+    /** Map of package names to their allocated app IDs. */
     private final Map<String, Integer> mAppIds = new HashMap<>();
+
+    /** Map of shared user IDs to their settings. */
     private final Map<String, SharedUserSetting> mSharedUsers = SharedUserSetting.sSharedUsers;
+
+    /** The current UID counter for allocating new app IDs. */
     private int mCurrUid = 0;
 
+    /**
+     * Constructs Settings, loading persisted UIDs and shared user settings from disk.
+     */
     public Settings() {
         synchronized (mPackages) {
             loadUidLP();
@@ -39,6 +56,17 @@ import com.vcore.utils.compat.PackageParserCompat;
         }
     }
 
+    /**
+     * Retrieves or creates package settings for the given package name.
+     *
+     * <p>If the package already exists, reuses its app ID and user state.
+     * Otherwise, registers a new app ID for the package.</p>
+     *
+     * @param name           the package name
+     * @param aPackage       the parsed package from the system PackageParser
+     * @param installOption  the install options for the package
+     * @return the package settings for the given package
+     */
     BPackageSettings getPackageLPw(String name, PackageParser.Package aPackage, InstallOption installOption) {
         BPackageSettings pkgSettings;
         BPackageSettings origSettings = new BPackageSettings();
@@ -63,6 +91,13 @@ import com.vcore.utils.compat.PackageParserCompat;
         return origSettings;
     }
 
+    /**
+     * Registers an app ID for the given package settings.
+     * Handles shared user ID resolution and allocation.
+     *
+     * @param p the package settings to register
+     * @return true if a valid app ID was assigned, false on failure
+     */
     boolean registerAppIdLPw(BPackageSettings p) {
         boolean createdNew;
         String sharedUserId = p.pkg.mSharedUserId;
@@ -153,6 +188,9 @@ import com.vcore.utils.compat.PackageParserCompat;
         }
     }
 
+    /**
+     * Scans all package directories under the app root and loads their settings.
+     */
     public void scanPackage() {
         synchronized (mPackages) {
             File appRootDir = BEnvironment.getAppRootDir();
@@ -170,6 +208,11 @@ import com.vcore.utils.compat.PackageParserCompat;
         }
     }
 
+    /**
+     * Scans and loads the settings for a specific package.
+     *
+     * @param packageName the package name to scan
+     */
     public void scanPackage(String packageName) {
         synchronized (mPackages) {
             updatePackageLP(BEnvironment.getAppDir(packageName));
@@ -228,6 +271,11 @@ import com.vcore.utils.compat.PackageParserCompat;
         return getPackageLPw(aPackage.packageName, aPackage, option);
     }
 
+    /**
+     * Removes a package from the settings map.
+     *
+     * @param packageName the package name to remove
+     */
     public void removePackage(String packageName) {
         mPackages.remove(packageName);
     }

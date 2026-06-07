@@ -14,6 +14,9 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.compat.TaskDescriptionCompat;
 
+/**
+ * Proxy for ActivityClient (IActivityClientController) that intercepts activity lifecycle callbacks such as finishActivity, activityResumed, activityDestroyed, and setTaskDescription, redirecting them through the virtual environment's BActivityManager.
+ */
 public class IActivityClientProxy extends ClassInvocationStub {
     public static final String TAG = "IActivityClientProxy";
     private final Object who;
@@ -22,6 +25,11 @@ public class IActivityClientProxy extends ClassInvocationStub {
         this.who = who;
     }
 
+
+    /**
+     * Returns the IActivityClientController singleton instance to be proxied.
+     * @return the activity client controller instance
+     */
     @Override
     protected Object getWho() {
         if (who != null) {
@@ -33,6 +41,12 @@ public class IActivityClientProxy extends ClassInvocationStub {
         return Singleton.get.call(singleton);
     }
 
+
+    /**
+     * Replaces the ActivityClientController singleton instance with the proxy.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         Object instance = ActivityClient.getInstance.call();
@@ -41,11 +55,21 @@ public class IActivityClientProxy extends ClassInvocationStub {
 
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;
     }
 
+
+    /**
+     * Sets whether this proxy should only proxy without additional hooks.
+     * @param only true to enable proxy-only mode
+     */
     @Override
     public void onlyProxy(boolean only) {
         super.onlyProxy(only);

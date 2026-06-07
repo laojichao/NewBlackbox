@@ -20,10 +20,19 @@ import com.vspace.util.InjectionUtil
 import com.vspace.util.ViewBindingEx.inflate
 import com.vspace.view.base.BaseActivity
 
+/**
+ * Activity that displays a searchable list of host-installed applications (or Xposed modules)
+ * and returns the user's selection as the activity result.
+ *
+ * When launched with "onlyShowXp" = true, only Xposed modules are shown.
+ * The selected package name (or APK URI from the file picker) is returned via RESULT_OK
+ * in the "source" intent extra.
+ */
 class ListActivity : BaseActivity() {
     private val viewBinding: ActivityListBinding by inflate()
     private lateinit var mAdapter: RVAdapter<InstalledAppBean>
     private lateinit var viewModel: ListViewModel
+    /** Full unfiltered app list, used as the source for text-based filtering. */
     private var appList: List<InstalledAppBean> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +52,9 @@ class ListActivity : BaseActivity() {
             .addCallback(onBackPressedCallback)
     }
 
+    /**
+     * Wires up the [SimpleSearchView] to filter the displayed list as the user types.
+     */
     private fun initSearchView() {
         viewBinding.searchView.setOnQueryTextListener(object : SimpleSearchView.OnQueryTextListener {
             override fun onQueryTextChange(newText: String): Boolean {
@@ -60,6 +72,10 @@ class ListActivity : BaseActivity() {
         })
     }
 
+    /**
+     * Initializes the [ListViewModel] and determines whether to show all installed apps
+     * or only Xposed modules based on the "onlyShowXp" intent extra.
+     */
     private fun initViewModel() {
         viewModel = ViewModelProvider(this, InjectionUtil.getListFactory())[ListViewModel::class.java]
         val onlyShowXp = intent.getBooleanExtra("onlyShowXp", false)
@@ -97,6 +113,11 @@ class ListActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Filters the adapter to items whose name or package name contains [newText].
+     *
+     * @param newText the search query string.
+     */
     private fun filterApp(newText: String) {
         val newList = this.appList.filter {
             it.name.contains(newText, true) or it.packageName.contains(newText, true)
@@ -104,6 +125,9 @@ class ListActivity : BaseActivity() {
         mAdapter.setItems(newList)
     }
 
+    /**
+     * Activity result launcher for the system file picker (APK selection).
+     */
     private val openDocumentedResult = registerForActivityResult(ActivityResultContracts.GetContent()) {
         it?.run {
             finishWithResult(it.toString())
@@ -120,6 +144,12 @@ class ListActivity : BaseActivity() {
             }
         }
 
+    /**
+     * Sets the selected [source] as the activity result and finishes,
+     * also hiding the soft keyboard.
+     *
+     * @param source the package name or APK URI to return.
+     */
     private fun finishWithResult(source: String) {
         intent.putExtra("source", source)
         setResult(Activity.RESULT_OK, intent)
@@ -155,6 +185,12 @@ class ListActivity : BaseActivity() {
     }
 
     companion object {
+        /**
+         * Convenience method to start this activity.
+         *
+         * @param context the launching [Context].
+         * @param onlyShowXp if true, only Xposed modules are displayed; otherwise all apps.
+         */
         fun start(context: Context, onlyShowXp: Boolean) {
             val intent = Intent(context, ListActivity::class.java)
             intent.putExtra("onlyShowXp", onlyShowXp)

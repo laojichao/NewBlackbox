@@ -16,13 +16,25 @@ import java.util.Set;
 import com.vcore.utils.Slog;
 
 /**
- * {@hide}
+ * Abstract base class for resolving intents against registered intent filters.
+ *
+ * <p>Maintains lookup maps indexed by MIME type, URI scheme, and action to enable
+ * efficient intent resolution. Subclasses specialize this for specific component types
+ * (activities, services, providers, receivers).</p>
+ *
+ * @param <F> the IntentInfo type used as the filter
+ * @param <R> the result type produced by resolution
  */
 public abstract class IntentResolver<F extends BPackage.IntentInfo, R> {
     final private static String TAG = "IntentResolver";
     final private static boolean DEBUG = false;
     final private static boolean localLOGV = DEBUG;
 
+    /**
+     * Adds an intent filter to the resolver's lookup maps.
+     *
+     * @param f the intent filter to register
+     */
     public void addFilter(F f) {
         if (localLOGV) {
             Slog.v(TAG, "Adding filter: " + f);
@@ -42,6 +54,11 @@ public abstract class IntentResolver<F extends BPackage.IntentInfo, R> {
         }
     }
 
+    /**
+     * Removes an intent filter from the resolver's lookup maps.
+     *
+     * @param f the intent filter to remove
+     */
     public void removeFilter(F f) {
         removeFilterInternal(f);
     }
@@ -64,6 +81,16 @@ public abstract class IntentResolver<F extends BPackage.IntentInfo, R> {
         }
     }
 
+    /**
+     * Queries matching filters from a pre-cut list of filter arrays.
+     *
+     * @param intent       the intent to resolve
+     * @param resolvedType the resolved MIME type
+     * @param defaultOnly  true to only match filters with CATEGORY_DEFAULT
+     * @param listCut      the pre-cut list of filter arrays to search
+     * @param userId       the virtual user ID
+     * @return a list of matching results
+     */
     public List<R> queryIntentFromList(Intent intent, String resolvedType, boolean defaultOnly, ArrayList<F[]> listCut, int userId) {
         ArrayList<R> resultList = new ArrayList<>();
         final boolean debug = localLOGV || ((intent.getFlags() & Intent.FLAG_DEBUG_LOG_RESOLUTION) != 0);
@@ -78,6 +105,18 @@ public abstract class IntentResolver<F extends BPackage.IntentInfo, R> {
         return resultList;
     }
 
+    /**
+     * Queries all registered filters for matches against the given intent.
+     *
+     * <p>Uses multiple cut strategies: exact MIME type, base type, wildcard type,
+     * URI scheme, and action-only to efficiently narrow the search space.</p>
+     *
+     * @param intent       the intent to resolve
+     * @param resolvedType the resolved MIME type
+     * @param defaultOnly  true to only match filters with CATEGORY_DEFAULT
+     * @param userId       the virtual user ID
+     * @return a list of matching results
+     */
     public List<R> queryIntent(Intent intent, String resolvedType, boolean defaultOnly, int userId) {
         String scheme = intent.getScheme();
         ArrayList<R> finalList = new ArrayList<>();

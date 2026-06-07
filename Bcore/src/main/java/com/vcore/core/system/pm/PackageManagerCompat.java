@@ -30,8 +30,26 @@ import com.vcore.utils.ArrayUtils;
 import com.vcore.utils.FileUtils;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Utility class for generating Android framework info objects from virtual package data.
+ *
+ * <p>Provides static methods to create {@link PackageInfo}, {@link ApplicationInfo},
+ * {@link ActivityInfo}, {@link ServiceInfo}, {@link ProviderInfo}, {@link PermissionInfo},
+ * and {@link InstrumentationInfo} instances from the virtual environment's package
+ * representations. Handles API-level-specific fields and sets correct data paths
+ * for the virtual environment.</p>
+ */
 @SuppressLint({"SdCardPath", "NewApi"})
 public class PackageManagerCompat {
+    /**
+     * Generates a {@link PackageInfo} from package settings.
+     *
+     * @param ps     the package settings
+     * @param flags  the flags controlling which fields to populate
+     * @param state  the per-user state for visibility checks
+     * @param userId the virtual user ID
+     * @return the generated PackageInfo, or null if the package is not visible
+     */
     public static PackageInfo generatePackageInfo(BPackageSettings ps, int flags, BPackageUserState state, int userId) {
         if (ps == null) {
             return null;
@@ -48,6 +66,17 @@ public class PackageManagerCompat {
         return null;
     }
 
+    /**
+     * Generates a {@link PackageInfo} from a BPackage with full component population.
+     *
+     * @param p               the virtual package
+     * @param flags           the flags controlling which fields to populate
+     * @param firstInstallTime the first install timestamp
+     * @param lastUpdateTime  the last update timestamp
+     * @param state           the per-user state for visibility checks
+     * @param userId          the virtual user ID
+     * @return the generated PackageInfo, or null if the package is not visible
+     */
     public static PackageInfo generatePackageInfo(BPackage p, int flags, long firstInstallTime, long lastUpdateTime, BPackageUserState state, int userId) {
         if (checkUseInstalledOrHidden(state, p.applicationInfo)) {
             return null;
@@ -286,6 +315,18 @@ public class PackageManagerCompat {
         return ii;
     }
 
+    /**
+     * Generates an {@link ApplicationInfo} for a virtual package with correct data paths.
+     *
+     * <p>Sets up data directories, native library paths, process names, and handles
+     * API-level-specific fields (device-protected storage, primary CPU ABI, etc.).</p>
+     *
+     * @param p       the virtual package
+     * @param flags   the flags controlling which fields to populate
+     * @param state   the per-user state for visibility checks
+     * @param userId  the virtual user ID
+     * @return the generated ApplicationInfo, or null if the package is not visible
+     */
     public static ApplicationInfo generateApplicationInfo(BPackage p, int flags, BPackageUserState state, int userId) {
         if (checkUseInstalledOrHidden(state, p.applicationInfo)) {
             return null;
@@ -371,6 +412,13 @@ public class PackageManagerCompat {
         info.sharedLibraryFiles = sharedLibraryFileList.toArray(new String[]{});
     }
 
+    /**
+     * Creates a Resources instance for the given application using its APK path.
+     *
+     * @param context the context for resource creation
+     * @param appInfo the application info containing the package name
+     * @return the Resources instance, or null if the package is not found
+     */
     public static Resources getResources(Context context, ApplicationInfo appInfo) {
         BPackageSettings ps = BPackageManagerService.get().getBPackageSetting(appInfo.packageName);
         if (ps != null) {

@@ -20,27 +20,55 @@ import com.vcore.fake.service.base.PkgMethodProxy;
 import com.vcore.utils.MethodParameterUtils;
 import com.vcore.utils.compat.ParceledListSliceCompat;
 
+/**
+ * Proxy for IShortcutService system service that intercepts shortcut management operations including dynamic shortcuts, pinned shortcuts, and shortcut queries, replacing package names and returning stub values for the virtual environment.
+ */
 public class IShortcutManagerProxy extends BinderInvocationStub {
     public IShortcutManagerProxy() {
         super(ServiceManager.getService.call(Context.SHORTCUT_SERVICE));
     }
 
+
+    /**
+     * Returns the IShortcutService binder interface from ServiceManager.
+     * @return the IShortcutService proxy instance
+     */
     @Override
     protected Object getWho() {
         return IShortcutService.Stub.asInterface.call(ServiceManager.getService.call(Context.SHORTCUT_SERVICE));
     }
 
+
+    /**
+     * Replaces the system SHORTCUT_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.SHORTCUT_SERVICE);
     }
 
+
+    /**
+     * Intercepts all method calls to replace all package name arguments.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         MethodParameterUtils.replaceAllAppPkg(args);
         return super.invoke(proxy, method, args);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

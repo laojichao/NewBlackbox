@@ -20,10 +20,21 @@ import com.vspace.bean.InstalledAppBean
 import com.vspace.util.ResUtil.getString
 import java.io.File
 
+/**
+ * Repository responsible for managing application operations within the virtual environment.
+ *
+ * Provides host-device app scanning, per-user install/uninstall, launch, data clearing,
+ * app sort ordering, and Xposed module detection. All operations are backed by [BlackBoxCore].
+ */
 class AppsRepository {
     private val TAG: String = "AppsRepository"
     private var mInstalledList = mutableListOf<AppInfo>()
 
+    /**
+     * Scans the host device for installed (non-system, ABI-compatible) applications
+     * and caches the result in [mInstalledList]. This is typically called once before
+     * displaying the install picker to avoid repeated PackageManager queries.
+     */
     fun previewInstallList() {
         synchronized(mInstalledList) {
             val installedList = mutableListOf<AppInfo>()
@@ -35,10 +46,12 @@ class AppsRepository {
 
             for (installedApplication in installedApplications) {
                 val file = File(installedApplication.sourceDir)
+                // Skip system apps -- they are generally not user-installable clones
                 if (installedApplication.flags and ApplicationInfo.FLAG_SYSTEM != 0) {
                     continue
                 }
 
+                // Skip apps whose ABI is not supported by the virtual engine
                 if (!AbiUtils.isSupport(file)) {
                     continue
                 }
@@ -67,6 +80,14 @@ class AppsRepository {
         }
     }
 
+    /**
+     * Builds a list of [InstalledAppBean] for the install picker, marking which host apps
+     * are already installed inside the given virtual [userID].
+     *
+     * @param userID the virtual user ID to check against.
+     * @param loadingLiveData posts true while loading, false when complete.
+     * @param appsLiveData receives the resulting list of [InstalledAppBean].
+     */
     fun getInstalledAppList(userID: Int, loadingLiveData: MutableLiveData<Boolean>, appsLiveData: MutableLiveData<List<InstalledAppBean>>) {
         loadingLiveData.postValue(true)
 
@@ -82,6 +103,13 @@ class AppsRepository {
         }
     }
 
+    /**
+     * Filters the cached host app list to only Xposed modules and reports their
+     * installation status within the virtual environment.
+     *
+     * @param loadingLiveData posts true while loading, false when complete.
+     * @param appsLiveData receives the resulting list of Xposed-module [InstalledAppBean].
+     */
     fun getInstalledModuleList(loadingLiveData: MutableLiveData<Boolean>, appsLiveData: MutableLiveData<List<InstalledAppBean>>) {
         loadingLiveData.postValue(true)
 
@@ -97,6 +125,13 @@ class AppsRepository {
         }
     }
 
+    /**
+     * Retrieves the list of apps installed inside a virtual user, sorted by the user's
+     * custom ordering stored in SharedPreferences.
+     *
+     * @param userId the virtual user ID whose installed apps to retrieve.
+     * @param appsLiveData receives the resulting sorted list of [AppInfo].
+     */
     fun getVmInstallList(userId: Int, appsLiveData: MutableLiveData<List<AppInfo>>) {
         val sortListData = AppManager.mRemarkSharedPreferences.getString("AppList$userId", "")
         val sortList = sortListData?.split(",")
@@ -116,6 +151,13 @@ class AppsRepository {
         appsLiveData.postValue(appInfoList)
     }
 
+    /**
+     * Checks whether the given [packageName] is registered as an Xposed module
+     * inside the virtual environment.
+     *
+     * @param packageName the package name to check.
+     * @return true if the package is an installed Xposed module.
+     */
     private fun isInstalledXpModule(packageName: String): Boolean {
         BlackBoxCore.get().installedXPModules.forEach {
             if (packageName == it.packageName) {
@@ -125,6 +167,14 @@ class AppsRepository {
         return false
     }
 
+    /**
+     * Installs an APK into a virtual user. The [source] can be either a file path
+     * or a URL; the latter is resolved via [Uri].
+     *
+     * @param source the APK file path or download URL.
+     * @param userId the target virtual user ID.
+     * @param resultLiveData receives a user-facing success/failure message string.
+     */
     fun installApk(source: String, userId: Int, resultLiveData: MutableLiveData<String>) {
         val blackBoxCore = BlackBoxCore.get()
         val installResult = if (URLUtil.isValidUrl(source)) {
@@ -143,6 +193,13 @@ class AppsRepository {
         scanUser()
     }
 
+    /**
+     * Uninstalls an application from a virtual user and updates the sort order.
+     *
+     * @param packageName the package to uninstall.
+     * @param userID the virtual user ID.
+     * @param resultLiveData receives a user-facing success message.
+     */
     fun unInstall(packageName: String, userID: Int, resultLiveData: MutableLiveData<String>) {
         BlackBoxCore.get().uninstallPackageAsUser(packageName, userID)
         updateAppSortList(userID, packageName, false)
@@ -150,19 +207,33 @@ class AppsRepository {
         resultLiveData.postValue(getString(R.string.uninstall_success))
     }
 
+    /**
+     * Launches an application inside a virtual user environment.
+     *
+     * @param packageName the package to launch.
+     * @param userId the virtual user ID.
+     * @param launchLiveData receives true on success, false on failure.
+     */
     fun launchApk(packageName: String, userId: Int, launchLiveData: MutableLiveData<Boolean>) {
         val result = BlackBoxCore.get().launchApk(packageName, userId)
         launchLiveData.postValue(result)
     }
 
+    /**
+     * Clears all data for an application in a virtual user.
+     *
+     * @param packageName the package whose data to clear.
+     * @param userID the virtual user ID.
+     * @param resultLiveData receives a user-facing success message.
+     */
     fun clearApkData(packageName: String, userID: Int, resultLiveData: MutableLiveData<String>) {
         BlackBoxCore.get().clearPackage(packageName, userID)
         resultLiveData.postValue(getString(R.string.clear_success))
     }
 
     /**
-     * 倒序递归扫描用户，
-     * 如果用户是空的，就删除用户，删除用户备注，删除应用排序列表
+     * Recursively scans virtual users in reverse order and removes any that have no
+     * installed applications. Cleans up associated remark and sort-order preferences.
      */
     private fun scanUser() {
         val blackBoxCore = BlackBoxCore.get()
@@ -184,10 +255,11 @@ class AppsRepository {
     }
 
     /**
-     * 更新排序列表
-     * @param userID Int
-     * @param pkg String
-     * @param isAdd Boolean true是添加，false是移除
+     * Updates the persisted app sort list for a given user by adding or removing [pkg].
+     *
+     * @param userID the virtual user ID.
+     * @param pkg the package name to add or remove.
+     * @param isAdd true to add, false to remove.
      */
     private fun updateAppSortList(userID: Int, pkg: String, isAdd: Boolean) {
         val savedSortList = AppManager.mRemarkSharedPreferences.getString("AppList$userID", "")
@@ -208,7 +280,10 @@ class AppsRepository {
     }
 
     /**
-     * 保存排序后的apk顺序
+     * Persists the current app ordering after a drag-and-drop re-sort.
+     *
+     * @param userID the virtual user ID.
+     * @param dataList the reordered list of [AppInfo] reflecting the new display order.
      */
     fun updateApkOrder(userID: Int, dataList: List<AppInfo>) {
         AppManager.mRemarkSharedPreferences.edit {

@@ -58,9 +58,17 @@ import com.vcore.utils.compat.ParceledListSliceCompat;
 import com.vcore.utils.compat.TaskDescriptionCompat;
 
 @ScanClass(ActivityManagerCommonProxy.class)
+/**
+ * Proxy for IActivityManager system service (the core Activity Manager interface) that intercepts a wide range of AMS operations including getContentProvider, startService, bindService, broadcastIntent, registerReceiver, checkPermission, and more, redirecting them through the virtual environment.
+ */
 public class IActivityManagerProxy extends ClassInvocationStub {
     public static final String TAG = "IActivityManagerProxy";
 
+
+    /**
+     * Returns the IActivityManager singleton instance from ActivityManagerNative or ActivityManagerOreo.
+     * @return the IActivityManager instance
+     */
     @Override
     protected Object getWho() {
         Object iActivityManager = null;
@@ -72,6 +80,12 @@ public class IActivityManagerProxy extends ClassInvocationStub {
         return Singleton.get.call(iActivityManager);
     }
 
+
+    /**
+     * Replaces the IActivityManager singleton with the proxy instance.
+     * @param base    the original invocation object
+     * @param proxy   the proxy invocation object
+     */
     @Override
     protected void inject(Object base, Object proxy) {
         Object iActivityManager = null;
@@ -83,11 +97,20 @@ public class IActivityManagerProxy extends ClassInvocationStub {
         Singleton.mInstance.set(iActivityManager, proxy);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised by verifying the singleton still points to the proxy.
+     * @return true if the proxy has been replaced
+     */
     @Override
     public boolean isBadEnv() {
         return getProxyInvocation() != getWho();
     }
 
+
+    /**
+     * Registers additional method hooks for getAppStartMode, setAppLockedVerifying, and reportJunkFromApp.
+     */
     @Override
     protected void onBindMethod() {
         super.onBindMethod();

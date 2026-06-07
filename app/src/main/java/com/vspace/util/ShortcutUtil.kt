@@ -16,11 +16,20 @@ import com.vspace.util.ContextUtil.openAppSystemSettings
 import com.vspace.util.ToastEx.toast
 import com.vspace.view.main.ShortcutActivity
 
+/**
+ * Utility object for creating Android home-screen shortcuts that launch apps
+ * inside the virtual environment via [ShortcutActivity].
+ */
 object ShortcutUtil {
     /**
-     * 创建桌面快捷方式
-     * @param userID Int userID
-     * @param info AppInfo
+     * Creates a pinned home-screen shortcut for the specified app inside a virtual user.
+     *
+     * Displays a dialog allowing the user to customize the shortcut label. If pinning
+     * is not supported by the launcher, a toast is shown instead.
+     *
+     * @param context the [Context] used to show dialogs and register the shortcut.
+     * @param userID the virtual user ID the shortcut targets.
+     * @param info the [AppInfo] for the application to create a shortcut for.
      */
     fun createShortcut(context: Context,userID: Int, info: AppInfo) {
         if (ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
@@ -55,6 +64,12 @@ object ShortcutUtil {
         }
     }
 
+    /**
+     * Shows a dialog prompting the user to grant the "Add shortcut" permission
+     * if the first attempt was denied. Offers a button to open app settings directly.
+     *
+     * @param context the [Context] used to show the dialog.
+     */
     private fun showAllowPermissionDialog(context: Context) {
         if (!AppManager.mBlackBoxLoader.showShortcutPermissionDialog()) {
             return

@@ -26,11 +26,22 @@ public class ISearchManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.SEARCH_SERVICE));
     }
 
+
+    /**
+     * Returns the ISearchManager binder interface from ServiceManager.
+     * @return the ISearchManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return ISearchManager.Stub.asInterface.call(ServiceManager.getService.call(Context.SEARCH_SERVICE));
     }
 
+
+    /**
+     * Replaces the search system service with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("search");
@@ -61,6 +72,11 @@ public class ISearchManagerProxy extends BinderInvocationStub {
         }
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

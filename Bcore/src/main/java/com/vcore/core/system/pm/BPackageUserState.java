@@ -3,17 +3,37 @@ package com.vcore.core.system.pm;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+/**
+ * Represents the per-user state of a package in the virtual environment.
+ *
+ * <p>Tracks whether a package is installed, stopped, or hidden for a specific virtual user.
+ * Supports copy construction for safe state snapshots and Parcel serialization for IPC.</p>
+ */
 public class BPackageUserState implements Parcelable {
+
+    /** Whether the package is installed for this user. */
     public boolean installed;
+
+    /** Whether the package is in a stopped state. */
     public final boolean stopped;
+
+    /** Whether the package is hidden from the user. */
     public final boolean hidden;
 
+    /**
+     * Creates a default user state with installed=false, stopped=true, hidden=false.
+     */
     public BPackageUserState() {
         this.installed = false;
         this.stopped = true;
         this.hidden = false;
     }
 
+    /**
+     * Factory method that creates a user state marked as installed.
+     *
+     * @return a new {@link BPackageUserState} with installed=true
+     */
     public static BPackageUserState create() {
         BPackageUserState state = new BPackageUserState();
         state.installed = true;
@@ -38,6 +58,11 @@ public class BPackageUserState implements Parcelable {
         this.hidden = in.readByte() != 0;
     }
 
+    /**
+     * Creates a copy of the given user state.
+     *
+     * @param state the state to copy
+     */
     public BPackageUserState(BPackageUserState state) {
         this.installed = state.installed;
         this.stopped = state.stopped;

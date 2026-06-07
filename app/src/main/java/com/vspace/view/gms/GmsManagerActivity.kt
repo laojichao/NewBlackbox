@@ -16,6 +16,13 @@ import com.vspace.util.ToastEx.toast
 import com.vspace.util.ViewBindingEx.inflate
 import com.vspace.view.base.LoadingActivity
 
+/**
+ * Activity that displays a list of all virtual users with the ability to
+ * install or uninstall Google Mobile Services (GMS) per user.
+ *
+ * Each user row shows a toggle switch that triggers a confirmation dialog
+ * before performing the install/uninstall operation.
+ */
 class GmsManagerActivity : LoadingActivity() {
     private lateinit var viewModel: GmsViewModel
     private lateinit var mAdapter: RVAdapter<GmsBean>
@@ -30,6 +37,10 @@ class GmsManagerActivity : LoadingActivity() {
         initRecyclerView()
     }
 
+    /**
+     * Initializes the [GmsViewModel] and wires up LiveData observers for
+     * the user list and install/uninstall operation results.
+     */
     private fun initViewModel() {
         viewModel = ViewModelProvider(this, InjectionUtil.getGmsFactory())[GmsViewModel::class.java]
         showLoading()
@@ -70,6 +81,10 @@ class GmsManagerActivity : LoadingActivity() {
         viewModel.getInstalledUser()
     }
 
+    /**
+     * Sets up the RecyclerView with the [GmsAdapter] and click listeners
+     * that toggle GMS install/uninstall based on current state.
+     */
     private fun initRecyclerView() {
         mAdapter = RVAdapter<GmsBean>(this, GmsAdapter())
 			.bind(viewBinding.recyclerView)
@@ -84,6 +99,13 @@ class GmsManagerActivity : LoadingActivity() {
         viewBinding.recyclerView.layoutManager = LinearLayoutManager(this)
     }
 
+    /**
+     * Shows a confirmation dialog before installing GMS for the specified user.
+     * Reverts the checkbox state if the user cancels.
+     *
+     * @param userID the virtual user ID to install GMS into.
+     * @param checkbox the [Switch] widget to revert on cancel.
+     */
     private fun installGms(userID: Int, checkbox: Switch) {
         MaterialDialog(this).show {
             title(R.string.enable_gms)
@@ -99,6 +121,13 @@ class GmsManagerActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Shows a confirmation dialog before uninstalling GMS from the specified user.
+     * Reverts the checkbox state if the user cancels.
+     *
+     * @param userID the virtual user ID to uninstall GMS from.
+     * @param checkbox the [Switch] widget to revert on cancel.
+     */
     private fun uninstallGms(userID: Int, checkbox: Switch) {
         MaterialDialog(this).show {
             title(R.string.disable_gms)
@@ -115,6 +144,11 @@ class GmsManagerActivity : LoadingActivity() {
     }
 
     companion object{
+        /**
+         * Convenience method to start this activity from any [Context].
+         *
+         * @param context the launching [Context].
+         */
         fun start(context: Context) {
             val intent = Intent(context, GmsManagerActivity::class.java)
             context.startActivity(intent)

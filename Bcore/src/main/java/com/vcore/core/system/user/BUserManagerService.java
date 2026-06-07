@@ -21,20 +21,47 @@ import com.vcore.utils.CloseUtils;
 import com.vcore.utils.FileUtils;
 
 
+/**
+ * Virtual user manager service for the BlackBox environment.
+ * <p>
+ * Manages the lifecycle of virtual users including creation, deletion, querying,
+ * and persistent storage. Each virtual user is identified by a unique integer ID
+ * and is represented by a {@link BUserInfo} object. User data is persisted to disk
+ * and loaded on system startup.
+ */
 public class BUserManagerService extends IBUserManagerService.Stub implements ISystemService {
+    /** Singleton instance. */
     private static final BUserManagerService sService = new BUserManagerService();
+
+    /** Map from user ID to BUserInfo for all virtual users. */
     public final HashMap<Integer, BUserInfo> mUsers = new HashMap<>();
+
+    /** Lock object for user creation/deletion operations. */
     public final Object mUserLock = new Object();
 
+    /**
+     * Returns the singleton instance of BUserManagerService.
+     *
+     * @return the singleton service instance
+     */
     public static BUserManagerService get() {
         return sService;
     }
 
+    /**
+     * Called when the system is ready. Loads persisted user information from disk.
+     */
     @Override
     public void systemReady() {
         scanUserL();
     }
 
+    /**
+     * Returns the BUserInfo for the specified user ID.
+     *
+     * @param userId the virtual user ID to look up
+     * @return the BUserInfo, or null if no user with that ID exists
+     */
     @Override
     public BUserInfo getUserInfo(int userId) {
         synchronized (mUserLock) {
@@ -42,6 +69,12 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Checks whether a virtual user with the given ID exists.
+     *
+     * @param userId the virtual user ID to check
+     * @return true if the user exists
+     */
     @Override
     public boolean exists(int userId) {
         synchronized (mUsers) {
@@ -49,6 +82,13 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Creates a new virtual user with the given ID. If a user with that ID
+     * already exists, returns the existing user info.
+     *
+     * @param userId the virtual user ID to create
+     * @return the BUserInfo for the created or existing user
+     */
     @Override
     public BUserInfo createUser(int userId) {
         synchronized (mUserLock) {
@@ -59,6 +99,12 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Returns a list of all virtual users with non-negative IDs (excludes
+     * special/system user handles).
+     *
+     * @return a list of BUserInfo for all normal users
+     */
     @Override
     public List<BUserInfo> getUsers() {
         synchronized (mUsers) {
@@ -72,12 +118,24 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Returns a list of all virtual users regardless of their ID values.
+     *
+     * @return a list of all BUserInfo entries
+     */
     public List<BUserInfo> getAllUsers() {
         synchronized (mUsers) {
             return new ArrayList<>(mUsers.values());
         }
     }
 
+    /**
+     * Deletes the virtual user with the given ID. Removes the user from the
+     * user map, persists the change, and deletes the user's data directories.
+     *
+     * @param userId the virtual user ID to delete
+     * @throws RemoteException if package deletion fails
+     */
     @Override
     public void deleteUser(int userId) throws RemoteException {
         synchronized (mUserLock) {
@@ -92,6 +150,12 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Internal method to create a new user and persist the change.
+     *
+     * @param userId the virtual user ID to create
+     * @return the newly created BUserInfo
+     */
     private BUserInfo createUserLocked(int userId) {
         BUserInfo bUserInfo = new BUserInfo();
         bUserInfo.id = userId;
@@ -103,6 +167,9 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         return bUserInfo;
     }
 
+    /**
+     * Persists all user information to disk using atomic file writes.
+     */
     private void saveUserInfoLocked() {
         Parcel parcel = Parcel.obtain();
         AtomicFile atomicFile = new AtomicFile(BEnvironment.getUserInfoConf());
@@ -127,6 +194,9 @@ public class BUserManagerService extends IBUserManagerService.Stub implements IS
         }
     }
 
+    /**
+     * Loads user information from the persisted configuration file on disk.
+     */
     private void scanUserL() {
         synchronized (mUserLock) {
             Parcel parcel = Parcel.obtain();

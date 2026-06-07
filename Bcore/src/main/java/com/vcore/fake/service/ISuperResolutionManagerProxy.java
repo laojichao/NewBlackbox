@@ -19,6 +19,11 @@ public class ISuperResolutionManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call("SuperResolutionManager"));
     }
 
+
+    /**
+     * Returns the ISuperResolutionManager binder interface from ServiceManager.
+     * @return the ISuperResolutionManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return ISuperResolutionManager.Stub.asInterface.call(ServiceManager.getService.call("SuperResolutionManager"));
@@ -26,12 +31,23 @@ public class ISuperResolutionManagerProxy extends BinderInvocationStub {
 
 
 
+
+    /**
+     * Replaces the SuperResolutionManager system service with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("SuperResolutionManager");
     }
 
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

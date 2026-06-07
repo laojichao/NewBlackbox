@@ -26,6 +26,9 @@ import com.vcore.utils.MethodParameterUtils;
 import com.vcore.utils.compat.BuildCompat;
 import com.vcore.utils.compat.ParceledListSliceCompat;
 
+/**
+ * Proxy for INotificationManager system service that intercepts notification operations including channel management, notification enqueue/cancel, and channel group operations, redirecting them through the virtual environment's BNotificationManager.
+ */
 public class INotificationManagerProxy extends BinderInvocationStub {
     public static final String TAG = "INotificationManagerProxy";
 
@@ -33,23 +36,48 @@ public class INotificationManagerProxy extends BinderInvocationStub {
         super(NotificationManager.getService.call().asBinder());
     }
 
+
+    /**
+     * Returns the INotificationManager binder interface from NotificationManager.
+     * @return the INotificationManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return NotificationManager.getService.call();
     }
 
+
+    /**
+     * Replaces the NotificationManager internal service and the system NOTIFICATION_SERVICE with the proxy.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         NotificationManager.sService.set(getProxyInvocation());
         replaceSystemService(Context.NOTIFICATION_SERVICE);
     }
 
+
+    /**
+     * Intercepts all method calls to replace all package name arguments.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         MethodParameterUtils.replaceAllAppPkg(args);
         return super.invoke(proxy, method, args);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

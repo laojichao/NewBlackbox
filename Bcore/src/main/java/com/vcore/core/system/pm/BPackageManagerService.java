@@ -50,21 +50,53 @@ import com.vcore.utils.compat.XposedParserCompat;
 
 
 
+/**
+ * Virtual Package Manager Service that manages package installation, resolution, and queries.
+ *
+ * <p>This class provides the core package management functionality for the virtual environment,
+ * including package installation/uninstallation, component resolution (activities, services,
+ * providers, receivers), intent querying, and package metadata retrieval. It coordinates
+ * with {@link ComponentResolver} for intent-based component lookups and {@link Settings}
+ * for package persistence. Registered {@link PackageMonitor} instances receive callbacks
+ * on package lifecycle events.</p>
+ */
 public class BPackageManagerService extends IBPackageManagerService.Stub implements ISystemService {
     public static final String TAG = "BPackageManagerService";
+
+    /** Singleton instance of the service. */
     public static final BPackageManagerService sService = new BPackageManagerService();
+
+    /** The settings manager for package persistence and UID management. */
     private final Settings mSettings = new Settings();
+
+    /** Resolves intents to activities, services, providers, and receivers. */
     private final ComponentResolver mComponentResolver;
+
+    /** The user manager service for user existence checks. */
     private static final BUserManagerService sUserManager = BUserManagerService.get();
+
+    /** Registered package lifecycle monitors. */
     private final List<PackageMonitor> mPackageMonitors = new ArrayList<>();
 
+    /** Map of package names to their settings (shared with Settings). */
     final Map<String, BPackageSettings> mPackages = mSettings.mPackages;
+
+    /** Lock object for synchronizing install/uninstall operations. */
     final Object mInstallLock = new Object();
 
+    /**
+     * Returns the singleton instance of the service.
+     *
+     * @return the global {@link BPackageManagerService} instance
+     */
     public static BPackageManagerService get() {
         return sService;
     }
 
+    /**
+     * Constructs the service, initializing the component resolver and registering
+     * a broadcast receiver to watch for system package changes.
+     */
     public BPackageManagerService() {
         mComponentResolver = new ComponentResolver();
         IntentFilter filter = new IntentFilter();
@@ -198,6 +230,13 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         return chooseBestActivity(resolves);
     }
 
+    /**
+     * Chooses the best activity from a list of resolved activities based on priority
+     * and preferred order.
+     *
+     * @param query the list of resolved activities to choose from
+     * @return the best matching {@link ResolveInfo}, or null if the list is empty
+     */
     private ResolveInfo chooseBestActivity(List<ResolveInfo> query) {
         if (query != null) {
             final int N = query.size();
@@ -696,6 +735,18 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         }
     }
 
+    /**
+     * Installs a package for a specific user within a synchronized lock.
+     *
+     * <p>Handles the full installation flow: user creation, APK parsing, ABI compatibility
+     * checks, Xposed module validation, process cleanup, file installation via the
+     * installer service, component registration, and package state persistence.</p>
+     *
+     * @param file   the path or URI of the APK file to install
+     * @param option the install options specifying flags and behavior
+     * @param userId the virtual user ID
+     * @return the {@link InstallResult} with success or error information
+     */
     private InstallResult installPackageAsUserLocked(String file, InstallOption option, int userId) {
         long l = System.currentTimeMillis();
         InstallResult result = new InstallResult();
@@ -771,6 +822,12 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         return result;
     }
 
+    /**
+     * Parses an APK file using the system's PackageParser and collects certificates.
+     *
+     * @param file the path to the APK file
+     * @return the parsed {@link PackageParser.Package}, or null on error
+     */
     private PackageParser.Package parserApk(String file) {
         try {
             PackageParser parser = PackageParserCompat.createParser();
@@ -783,6 +840,14 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         return null;
     }
 
+    /**
+     * Fixes the process name by returning the actual process name if non-null,
+     * otherwise the default process name.
+     *
+     * @param defProcessName the default process name from the application info
+     * @param processName    the component-specific process name
+     * @return the resolved process name
+     */
     static String fixProcessName(String defProcessName, String processName) {
         if (processName == null) {
             return defProcessName;
@@ -801,6 +866,12 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         return flags;
     }
 
+    /**
+     * Returns the app ID (UID) for the given package name.
+     *
+     * @param packageName the package name to look up
+     * @return the app ID, or -1 if the package is not found
+     */
     public int getAppId(String packageName) {
         BPackageSettings bPackageSettings = mPackages.get(packageName);
         if (bPackageSettings != null) {
@@ -809,10 +880,22 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         return -1;
     }
 
+    /**
+     * Registers a package monitor to receive install/uninstall callbacks.
+     *
+     * @param monitor the PackageMonitor to register
+     */
     public void addPackageMonitor(PackageMonitor monitor) {
         mPackageMonitors.add(monitor);
     }
 
+    /**
+     * Notifies all registered monitors that a package was uninstalled.
+     *
+     * @param packageName the package name of the uninstalled application
+     * @param isRemove    true if the package was completely removed
+     * @param userId      the virtual user ID
+     */
     void onPackageUninstalled(String packageName, boolean isRemove, int userId) {
         for (PackageMonitor packageMonitor : mPackageMonitors) {
             packageMonitor.onPackageUninstalled(packageName, isRemove, userId);
@@ -820,6 +903,12 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         Slog.d(TAG, "onPackageUninstalled: " + packageName + ", userId: " + userId);
     }
 
+    /**
+     * Notifies all registered monitors that a package was installed.
+     *
+     * @param packageName the package name of the installed application
+     * @param userId      the virtual user ID
+     */
     void onPackageInstalled(String packageName, int userId) {
         for (PackageMonitor packageMonitor : mPackageMonitors) {
             packageMonitor.onPackageInstalled(packageName, userId);
@@ -827,14 +916,30 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
         Slog.d(TAG, "onPackageInstalled: " + packageName + ", userId: " + userId);
     }
 
+    /**
+     * Returns the package settings for the given package name.
+     *
+     * @param packageName the package name to look up
+     * @return the {@link BPackageSettings}, or null if not found
+     */
     public BPackageSettings getBPackageSetting(String packageName) {
         return mPackages.get(packageName);
     }
 
+    /**
+     * Returns a list of all package settings.
+     *
+     * @return a new list containing all {@link BPackageSettings} entries
+     */
     public List<BPackageSettings> getBPackageSettings() {
         return new ArrayList<>(mPackages.values());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Scans all packages and registers their components with the component resolver.</p>
+     */
     @Override
     public void systemReady() {
         mSettings.scanPackage();

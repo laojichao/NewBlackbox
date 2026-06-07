@@ -12,18 +12,32 @@ import com.vcore.core.env.BEnvironment;
 import com.vcore.utils.FileUtils;
 
 /**
- * Settings data for a particular shared user ID we know about.
+ * Settings data for a particular shared user ID in the virtual environment.
+ *
+ * <p>Shared user IDs allow multiple packages to share the same UID and run in the same
+ * process. This class stores the mapping between shared user names and their allocated
+ * user IDs, and supports persistence to disk via Parcel serialization.</p>
  */
 public final class SharedUserSetting implements Parcelable {
+
+    /** Global map of shared user names to their settings. */
     public static final Map<String, SharedUserSetting> sSharedUsers = new HashMap<>();
 
+    /** The shared user name (e.g., "android.uid.system"). */
     String name;
+
+    /** The allocated user ID for this shared user. */
     int userId;
 
     // The lowest targetSdkVersion of all apps in the sharedUserSetting, used to assign seinfo so
     // that all apps within the sharedUser run in the same selinux context.
     int seInfoTargetSdkVersion;
 
+    /**
+     * Constructs a SharedUserSetting with the given name.
+     *
+     * @param _name the shared user name
+     */
     SharedUserSetting(String _name) {
         name = _name;
     }
@@ -33,6 +47,9 @@ public final class SharedUserSetting implements Parcelable {
         return "SharedUserSetting{" + Integer.toHexString(System.identityHashCode(this)) + " " + name + "/" + userId + "}";
     }
 
+    /**
+     * Persists all shared user settings to disk using Parcel serialization with AtomicFile.
+     */
     public static void saveSharedUsers() {
         Parcel parcel = Parcel.obtain();
         FileOutputStream fileOutputStream = null;
@@ -52,6 +69,10 @@ public final class SharedUserSetting implements Parcelable {
         }
     }
 
+    /**
+     * Loads shared user settings from disk into the global map.
+     * Silently handles missing or corrupt files.
+     */
     public static void loadSharedUsers() {
         Parcel parcel = Parcel.obtain();
 

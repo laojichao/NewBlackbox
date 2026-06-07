@@ -33,6 +33,9 @@ import com.vcore.utils.Slog;
 import com.vcore.utils.compat.BuildCompat;
 import com.vcore.utils.compat.ParceledListSliceCompat;
 
+/**
+ * Proxy for IPackageManager system service that intercepts all package management operations including package info queries, intent resolution, installed packages listing, component info queries, and content provider resolution, redirecting them through the virtual environment's BPackageManager.
+ */
 public class IPackageManagerProxy extends BinderInvocationStub {
     public static final String TAG = "PackageManagerProxy";
 
@@ -40,11 +43,22 @@ public class IPackageManagerProxy extends BinderInvocationStub {
         super(ActivityThread.sPackageManager.get().asBinder());
     }
 
+
+    /**
+     * Returns the IPackageManager from ActivityThread.sPackageManager.
+     * @return the IPackageManager instance
+     */
     @Override
     protected Object getWho() {
         return ActivityThread.sPackageManager.get();
     }
 
+
+    /**
+     * Replaces ActivityThread.sPackageManager, the system package service, and the ApplicationPackageManager internal reference.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         ActivityThread.sPackageManager.set(proxyInvocation);
@@ -95,6 +109,11 @@ public class IPackageManagerProxy extends BinderInvocationStub {
         }
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

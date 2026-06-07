@@ -17,15 +17,40 @@ import androidx.annotation.NonNull;
 
 import com.vspace.util.MathUtil;
 
+/**
+ * A custom joystick/rocker widget implemented as a {@link SurfaceView}.
+ *
+ * <p>Renders a circular active area with a movable rocker (thumb) that follows
+ * the user's touch. The rocker is constrained within the active area radius and
+ * snaps back to the center when the user lifts their finger. This widget is
+ * commonly used for directional input in virtual location or game control scenarios.</p>
+ *
+ * <p>The widget manages its own rendering thread via the {@link Runnable} interface
+ * and responds to surface lifecycle events through {@link SurfaceHolder.Callback}.</p>
+ *
+ * @see SurfaceView
+ * @see SurfaceHolder.Callback
+ */
 public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.Callback {
+    /** Default radius of the circular active area in pixels. */
     private static final int DEFAULT_AREA_RADIUS = 100;
+
+    /** Default radius of the movable rocker thumb in pixels. */
     private static final int DEFAULT_ROCKER_RADIUS = 35;
 
+    /** Default refresh cycle interval for the rendering thread in milliseconds. */
     private static final int DEFAULT_REFRESH_CYCLE = 30;
+
+    /** Default callback cycle interval for position change notifications in milliseconds. */
     private static final int DEFAULT_CALLBACK_CYCLE = 300;
 
+    /** The {@link SurfaceHolder} used to lock and draw on the surface canvas. */
     private SurfaceHolder mHolder;
+
+    /** Flag controlling whether the drawing thread should continue running. */
     private static boolean mDrawOk = true;
+
+    /** Flag controlling whether the callback thread should continue running. */
     private static boolean mCallbackOk = true;
 
     /**
@@ -43,21 +68,45 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
      */
     private Point mRockerPosition;
 
+    /** The radius of the circular active area in pixels. */
     private int mAreaRadius = -1;
+
+    /** The radius of the movable rocker thumb in pixels. */
     private int mRockerRadius = -1;
 
+    /** Whether the rocker is allowed to move in response to touch events. */
     private boolean canMove = true;
 
+    /** The interval in milliseconds between position callback notifications. */
     private final int mCallbackCycle = DEFAULT_CALLBACK_CYCLE;
 
+    /**
+     * Constructs a {@link RockerView} with the given context.
+     *
+     * @param context the {@link Context} for this view
+     */
     public RockerView(Context context) {
         this(context, null);
     }
 
+    /**
+     * Constructs a {@link RockerView} with the given context and XML attributes.
+     *
+     * @param context the {@link Context} for this view
+     * @param attrs   the {@link AttributeSet} from XML inflation, or {@code null}
+     */
     public RockerView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
+    /**
+     * Constructs a {@link RockerView} with the given context, XML attributes, and
+     * default style attribute.
+     *
+     * @param context      the {@link Context} for this view
+     * @param attrs        the {@link AttributeSet} from XML inflation, or {@code null}
+     * @param defStyleAttr the default style attribute resource
+     */
     public RockerView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         // init attrs
@@ -75,16 +124,26 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         configSurfaceHolder();
     }
 
+    /**
+     * Initializes the default attribute values for the area and rocker radii.
+     */
     private void initAttrs() {
         mAreaRadius = DEFAULT_AREA_RADIUS;
         mRockerRadius = DEFAULT_ROCKER_RADIUS;
     }
 
+    /**
+     * Creates and configures the default {@link Paint} object for drawing.
+     */
     private void setPaint() {
         Paint mPaint = new Paint();
         mPaint.setAntiAlias(true);
     }
 
+    /**
+     * Configures this {@link SurfaceView} with default display properties
+     * (keep screen on, focusable, z-order on top).
+     */
     private void configSurfaceView() {
         setKeepScreenOn(true); // do not lock screen when surfaceView is running.
         setFocusable(true); // make sure this surfaceView can get focus from keyboard.
@@ -92,12 +151,23 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         setZOrderOnTop(true); // make sure this surface is placed on top of the window
     }
 
+    /**
+     * Configures the {@link SurfaceHolder} with a transparent pixel format
+     * and registers this view as the callback listener.
+     */
     private void configSurfaceHolder() {
         mHolder = getHolder();
         mHolder.addCallback(this);
         mHolder.setFormat(PixelFormat.TRANSPARENT); // 设置背景透明
     }
 
+    /**
+     * Measures this view, using a calculated default size based on area and rocker
+     * radii when the parent does not impose exact dimensions.
+     *
+     * @param widthMeasureSpec  the width requirements from the parent
+     * @param heightMeasureSpec the height requirements from the parent
+     */
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int measureWidth, measureHeight;
@@ -124,6 +194,15 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         setMeasuredDimension(measureWidth, measureHeight);
     }
 
+    /**
+     * Called when the size of this view changes. Recenters the area and rocker
+     * positions and adjusts the radii if they have not been explicitly set.
+     *
+     * @param w       the new width of this view
+     * @param h       the new height of this view
+     * @param oldWidth  the old width of this view
+     * @param oldHeight the old height of this view
+     */
     @Override
     protected void onSizeChanged(int w, int h, int oldWidth, int oldHeight) {
         super.onSizeChanged(w, h, oldWidth, oldHeight);
@@ -142,6 +221,11 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         }
     }
 
+    /**
+     * Called when the surface is first created. Starts the drawing and callback threads.
+     *
+     * @param holder the {@link SurfaceHolder} whose surface was created
+     */
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         try {
@@ -163,15 +247,35 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         }
     }
 
+    /**
+     * Called when the surface format or size changes. This implementation is a no-op.
+     *
+     * @param holder the {@link SurfaceHolder} whose surface changed
+     * @param format the new {@link android.graphics.PixelFormat}
+     * @param width  the new width of the surface
+     * @param height the new height of the surface
+     */
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) { }
 
+    /**
+     * Called when the surface is destroyed. Stops the drawing and callback threads.
+     *
+     * @param holder the {@link SurfaceHolder} whose surface was destroyed
+     */
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         mDrawOk = false;
         mCallbackOk = false;
     }
 
+    /**
+     * Called when the visibility of this view changes. Starts or stops the drawing
+     * and callback threads based on the new visibility state.
+     *
+     * @param changedView the view whose visibility changed
+     * @param visibility  the new visibility value ({@link #VISIBLE}, {@link #INVISIBLE}, or {@link #GONE})
+     */
     @Override
     protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
         super.onVisibilityChanged(changedView, visibility);
@@ -185,6 +289,20 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
     }
 
     /*Event Response*******************************************************************************/
+    /**
+     * Handles touch events to move the rocker within its active area.
+     *
+     * <ul>
+     *   <li>{@link MotionEvent#ACTION_DOWN}: Ignores the event if the touch is outside
+     *       the active area radius.</li>
+     *   <li>{@link MotionEvent#ACTION_MOVE}: Moves the rocker to the touch position if
+     *       within the active area, or clamps it to the edge if the touch exceeds the radius.</li>
+     *   <li>{@link MotionEvent#ACTION_UP}: Resets the rocker to the center position.</li>
+     * </ul>
+     *
+     * @param event the {@link MotionEvent} describing the touch interaction
+     * @return always returns {@code true} to consume the event
+     */
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent event) {
         try {
@@ -216,6 +334,11 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         return true;
     }
 
+    /**
+     * The main rendering loop that continuously redraws the surface canvas.
+     * Clears the canvas to transparent at each cycle and sleeps for the
+     * configured refresh interval.
+     */
     @Override
     public void run() {
         if (isInEditMode()) {
@@ -241,6 +364,11 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         }
     }
 
+    /**
+     * Draws a white background when the view is in the IDE preview (edit) mode.
+     *
+     * @param canvas the {@link Canvas} on which to draw
+     */
     // for preview
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
@@ -249,6 +377,11 @@ public class RockerView extends SurfaceView implements Runnable, SurfaceHolder.C
         }
     }
 
+    /**
+     * Enables or disables the rocker movement in response to touch events.
+     *
+     * @param isMove {@code true} to allow rocker movement, {@code false} to freeze it
+     */
     public void setCanMove(boolean isMove) {
         this.canMove = isMove;
     }

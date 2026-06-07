@@ -16,6 +16,9 @@ import com.vcore.utils.Md5Utils;
 import com.vcore.utils.MethodParameterUtils;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Proxy for IPhoneSubInfo (telephony subscriber info) system service that intercepts phone identity queries including IMSI, ICC serial, line number, and subscriber ID, returning spoofed or hashed values to protect real device identity.
+ */
 public class IPhoneSubInfoProxy extends BinderInvocationStub {
     public static final String TAG = "IPhoneSubInfoProxy";
 
@@ -23,6 +26,11 @@ public class IPhoneSubInfoProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call("iphonesubinfo"));
     }
 
+
+    /**
+     * Returns the IPhoneSubInfo binder interface, using TelephonyManager.sIPhoneSubInfo on R+ or getSubscriberInfo on older versions.
+     * @return the IPhoneSubInfo instance
+     */
     @Override
     protected Object getWho() {
         if (BuildCompat.isR()) {
@@ -32,6 +40,12 @@ public class IPhoneSubInfoProxy extends BinderInvocationStub {
         return TelephonyManager.getSubscriberInfo.call(telephonyManager);
     }
 
+
+    /**
+     * Replaces the iphonesubinfo system service (and sIPhoneSubInfo on R+).
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         if (BuildCompat.isR()) {
@@ -40,6 +54,15 @@ public class IPhoneSubInfoProxy extends BinderInvocationStub {
         replaceSystemService("iphonesubinfo");
     }
 
+
+    /**
+     * Intercepts all method calls to replace the last package name argument.
+     * @param proxy  the proxy object
+     * @param method the method being invoked
+     * @param args   the method arguments
+     * @return the result of the method invocation
+     * @throws Throwable if the invocation fails
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         Log.e(TAG, "Test");
@@ -47,6 +70,11 @@ public class IPhoneSubInfoProxy extends BinderInvocationStub {
         return super.invoke(proxy, method, args);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

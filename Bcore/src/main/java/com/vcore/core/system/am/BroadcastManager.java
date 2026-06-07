@@ -19,14 +19,35 @@ import com.vcore.entity.am.PendingResultData;
 import com.vcore.proxy.ProxyBroadcastReceiver;
 import com.vcore.utils.Slog;
 
+/**
+ * Manages broadcast receivers within the virtual environment.
+ *
+ * <p>This class registers proxy broadcast receivers for all declared receivers in installed
+ * virtual packages. It listens for package install/uninstall events to keep receiver
+ * registrations in sync. It also manages broadcast timeouts to prevent broadcasts from
+ * hanging indefinitely if receivers do not complete in time.</p>
+ *
+ * <p>Implements {@link PackageMonitor} to receive package lifecycle callbacks.</p>
+ */
 public class BroadcastManager implements PackageMonitor {
     public static final String TAG = "BroadcastManager";
+
+    /** Timeout in milliseconds before a broadcast is considered timed out. */
     public static final int TIMEOUT = 9000;
+
+    /** Message ID for the broadcast timeout handler. */
     public static final int MSG_TIME_OUT = 1;
+
+    /** Volatile singleton instance for thread-safe lazy initialization. */
     private static volatile BroadcastManager sBroadcastManager;
 
+    /** The package manager service used for querying package settings. */
     private final BPackageManagerService mPms;
+
+    /** Maps package names to their registered proxy broadcast receivers. */
     private final Map<String, List<BroadcastReceiver>> mReceivers = new HashMap<>();
+
+    /** Maps broadcast tokens to their pending result data for timeout tracking. */
     private final Map<String, PendingResultData> mReceiversData = new HashMap<>();
 
     private final Handler mHandler = new Handler(Looper.getMainLooper()) {
@@ -43,6 +64,12 @@ public class BroadcastManager implements PackageMonitor {
         }
     };
 
+    /**
+     * Returns or creates the singleton BroadcastManager instance.
+     *
+     * @param pms the package manager service
+     * @return the singleton {@link BroadcastManager} instance
+     */
     public static BroadcastManager startSystem(BPackageManagerService pms) {
         if (sBroadcastManager == null) {
             synchronized (BroadcastManager.class) {
@@ -54,10 +81,19 @@ public class BroadcastManager implements PackageMonitor {
         return sBroadcastManager;
     }
 
+    /**
+     * Constructs a BroadcastManager with the given package manager service.
+     *
+     * @param pms the package manager service for querying package settings
+     */
     public BroadcastManager(BPackageManagerService pms) {
         this.mPms = pms;
     }
 
+    /**
+     * Starts the broadcast manager by registering as a package monitor and
+     * registering broadcast receivers for all currently installed packages.
+     */
     public void startup() {
         mPms.addPackageMonitor(this);
         List<BPackageSettings> bPackageSettings = mPms.getBPackageSettings();
@@ -67,6 +103,11 @@ public class BroadcastManager implements PackageMonitor {
         }
     }
 
+    /**
+     * Registers proxy broadcast receivers for all declared receivers in the given package.
+     *
+     * @param bPackage the package whose receivers should be registered
+     */
     private void registerPackage(BPackage bPackage) {
         synchronized (mReceivers) {
             Slog.d(TAG, "register: " + bPackage.packageName + ", size: " + bPackage.receivers.size());
@@ -81,6 +122,12 @@ public class BroadcastManager implements PackageMonitor {
         }
     }
 
+    /**
+     * Adds a broadcast receiver to the receiver map for the given package.
+     *
+     * @param packageName the package name to associate the receiver with
+     * @param receiver    the broadcast receiver to add
+     */
     private void addReceiver(String packageName, BroadcastReceiver receiver) {
         List<BroadcastReceiver> broadcastReceivers = mReceivers.get(packageName);
         if (broadcastReceivers == null) {
@@ -90,6 +137,12 @@ public class BroadcastManager implements PackageMonitor {
         broadcastReceivers.add(receiver);
     }
 
+    /**
+     * Sends a broadcast by storing the pending result data and setting a timeout.
+     * If the broadcast is not finished within {@link #TIMEOUT}, it will be auto-finished.
+     *
+     * @param pendingResultData the pending result data for the broadcast
+     */
     public void sendBroadcast(PendingResultData pendingResultData) {
         synchronized (mReceiversData) {
             mReceiversData.put(pendingResultData.mBToken, pendingResultData);
@@ -98,6 +151,11 @@ public class BroadcastManager implements PackageMonitor {
         }
     }
 
+    /**
+     * Finishes a broadcast by removing its timeout message.
+     *
+     * @param data the pending result data of the completed broadcast
+     */
     public void finishBroadcast(PendingResultData data) {
         synchronized (mReceiversData) {
             mHandler.removeMessages(MSG_TIME_OUT, mReceiversData.get(data.mBToken));

@@ -15,15 +15,36 @@ import com.vcore.utils.Slog;
 
 
 
+/**
+ * Handles package installation, uninstallation, clearing, and updating in the virtual environment.
+ *
+ * <p>This service orchestrates the execution pipeline for package operations by composing
+ * a sequence of {@link Executor} steps. Each operation (install, uninstall, clear, update)
+ * uses a specific combination of executors to handle user environment creation, package
+ * directory setup, file copying, and cleanup.</p>
+ */
 public class BPackageInstallerService extends IBPackageInstallerService.Stub implements ISystemService {
+
+    /** Singleton instance of the service. */
     private static final BPackageInstallerService sService = new BPackageInstallerService();
 
+    /**
+     * Returns the singleton instance of the service.
+     *
+     * @return the global {@link BPackageInstallerService} instance
+     */
     public static BPackageInstallerService get() {
         return sService;
     }
 
     public static final String TAG = "BPackageInstallerService";
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes the install pipeline: creates user environment, creates package directories,
+     * and copies APK and native library files.</p>
+     */
     @Override
     public int installPackageAsUser(BPackageSettings ps, int userId) {
         List<Executor> executors = new ArrayList<>();
@@ -44,6 +65,12 @@ public class BPackageInstallerService extends IBPackageInstallerService.Stub imp
         return 0;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes the uninstall pipeline: optionally removes the app directory
+     * (if removing the last user) and removes user-specific data directories.</p>
+     */
     @Override
     public int uninstallPackageAsUser(BPackageSettings ps, boolean removeApp, int userId) {
         List<Executor> executors = new ArrayList<>();
@@ -64,6 +91,12 @@ public class BPackageInstallerService extends IBPackageInstallerService.Stub imp
         return 0;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes the clear pipeline: removes user data directories and recreates them
+     * for a clean state without removing the package itself.</p>
+     */
     @Override
     public int clearPackage(BPackageSettings ps, int userId) {
         List<Executor> executors = new ArrayList<>();
@@ -82,6 +115,12 @@ public class BPackageInstallerService extends IBPackageInstallerService.Stub imp
         return 0;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Executes the update pipeline: recreates package directories and copies
+     * updated APK and native library files.</p>
+     */
     @Override
     public int updatePackage(BPackageSettings ps) {
         List<Executor> executors = new ArrayList<>();

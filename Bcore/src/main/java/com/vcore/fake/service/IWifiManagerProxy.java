@@ -15,6 +15,9 @@ import com.vcore.fake.hook.BinderInvocationStub;
 import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 
+/**
+ * Proxy for IWifiManager system service that intercepts Wi-Fi operations including connection info queries and scan results, spoofing BSSID, MAC address, and SSID to hide real network info.
+ */
 public class IWifiManagerProxy extends BinderInvocationStub {
     public static final String TAG = "IWifiManagerProxy";
 
@@ -22,16 +25,32 @@ public class IWifiManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.WIFI_SERVICE));
     }
 
+
+    /**
+     * Returns the IWifiManager binder interface from ServiceManager.
+     * @return the IWifiManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IWifiManager.Stub.asInterface.call(ServiceManager.getService.call(Context.WIFI_SERVICE));
     }
 
+
+    /**
+     * Replaces the system WIFI_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.WIFI_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

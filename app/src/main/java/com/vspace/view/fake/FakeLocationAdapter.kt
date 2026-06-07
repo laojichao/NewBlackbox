@@ -10,11 +10,24 @@ import com.vspace.bean.FakeLocationBean
 import com.vspace.databinding.ItemFakeBinding
 import com.vspace.util.ResUtil.getString
 
+/**
+ * RecyclerView adapter factory for displaying [FakeLocationBean] items
+ * in the fake location manager screen.
+ *
+ * Shows the app icon, name, and the currently configured fake coordinates
+ * (or "real location" when no override is active).
+ */
 class FakeLocationAdapter : RVHolderFactory() {
     override fun createViewHolder(parent: ViewGroup?, viewType: Int, item: Any): RVHolder<out Any> {
         return FakeLocationVH(inflate(R.layout.item_fake, parent))
     }
 
+    /**
+     * ViewHolder that binds a [FakeLocationBean] to the item_fake layout.
+     *
+     * Displays either the overridden lat/lng or a "real location" label when
+     * no override is configured or the mode is [BLocationManager.CLOSE_MODE].
+     */
     class FakeLocationVH(itemView: View) : RVHolder<FakeLocationBean>(itemView) {
         private val binding = ItemFakeBinding.bind(itemView)
 

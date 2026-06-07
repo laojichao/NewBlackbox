@@ -24,10 +24,18 @@ import com.vspace.view.fake.FakeManagerActivity
 import com.vspace.view.list.ListActivity
 import com.vspace.view.setting.SettingActivity
 
+/**
+ * Main launcher activity that displays a [ViewPager2] of [AppsFragment] pages,
+ * one per virtual user. Provides floating-action-button for installing new apps,
+ * toolbar user-remark editing, and navigation to settings, GMS manager, fake location,
+ * and external links.
+ */
 class MainActivity : LoadingActivity() {
     private val viewBinding: ActivityMainBinding by inflate()
     private lateinit var mViewPagerAdapter: ViewPagerAdapter
+    /** List of [AppsFragment] instances, one per virtual user plus one "new user" placeholder. */
     private val fragmentList = mutableListOf<AppsFragment>()
+    /** The user ID of the currently visible ViewPager page. */
     private var currentUser = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +48,10 @@ class MainActivity : LoadingActivity() {
         initToolbarSubTitle()
     }
 
+    /**
+     * Sets up the toolbar subtitle to display the current virtual user's remark/alias.
+     * Tapping the subtitle opens a dialog to edit the remark.
+     */
     private fun initToolbarSubTitle() {
         updateUserRemark(0)
 
@@ -61,6 +73,11 @@ class MainActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Initializes the [ViewPager2] with one [AppsFragment] per existing virtual user
+     * plus an empty trailing slot for creating a new user. Attaches the dots indicator
+     * and page-change callback to track the active user.
+     */
     private fun initViewPager() {
         val userList = BlackBoxCore.get().users
         userList.forEach {
@@ -86,6 +103,10 @@ class MainActivity : LoadingActivity() {
         })
     }
 
+    /**
+     * Configures the FAB to launch [ListActivity] for installing a new app
+     * into the currently selected virtual user.
+     */
     private fun initFab() {
         viewBinding.fab.setOnClickListener {
             val userId = viewBinding.viewPager.currentItem
@@ -96,6 +117,11 @@ class MainActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Animates the floating action button in or out of view.
+     *
+     * @param show true to fade in and slide up; false to fade out and slide down.
+     */
     fun showFloatButton(show: Boolean) {
         val tranY: Float = Resolution.convertDpToPixel(120F, App.getContext())
         val time = 200L
@@ -109,6 +135,10 @@ class MainActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Synchronizes the ViewPager page count with the actual number of virtual users.
+     * Adds or removes the trailing "new user" placeholder fragment as needed.
+     */
     fun scanUser() {
         val userList = BlackBoxCore.get().users
 
@@ -120,6 +150,11 @@ class MainActivity : LoadingActivity() {
         mViewPagerAdapter.notifyDataSetChanged()
     }
 
+    /**
+     * Updates the toolbar subtitle with the user's remark/alias for the given [userId].
+     *
+     * @param userId the virtual user ID whose remark to display.
+     */
     private fun updateUserRemark(userId: Int) {
         var remark = AppManager.mRemarkSharedPreferences.getString("Remark$userId", "User $userId")
         if (remark.isNullOrEmpty()) {
@@ -128,6 +163,10 @@ class MainActivity : LoadingActivity() {
         viewBinding.toolbarLayout.toolbar.subtitle = remark
     }
 
+    /**
+     * Activity result launcher that receives the selected APK source from [ListActivity]
+     * and triggers installation into the appropriate user's [AppsFragment].
+     */
     private val apkPathResult =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == RESULT_OK) {
@@ -173,6 +212,11 @@ class MainActivity : LoadingActivity() {
     }
 
     companion object {
+        /**
+         * Convenience method to start this activity from any [Context].
+         *
+         * @param context the launching [Context].
+         */
         fun start(context: Context) {
             val intent = Intent(context, MainActivity::class.java)
             context.startActivity(intent)

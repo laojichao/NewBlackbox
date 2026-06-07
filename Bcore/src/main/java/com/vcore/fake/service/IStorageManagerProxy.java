@@ -15,11 +15,19 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.compat.BuildCompat;
 
+/**
+ * Proxy for IStorageManager (mount service) system service that intercepts storage volume queries and directory creation, redirecting volume list queries through the virtual environment's BStorageManager.
+ */
 public class IStorageManagerProxy extends BinderInvocationStub {
     public IStorageManagerProxy() {
         super(ServiceManager.getService.call("mount"));
     }
 
+
+    /**
+     * Returns the IStorageManager/IMountService binder interface from ServiceManager.
+     * @return the storage manager proxy instance
+     */
     @Override
     protected Object getWho() {
         IInterface mount;
@@ -31,11 +39,22 @@ public class IStorageManagerProxy extends BinderInvocationStub {
         return mount;
     }
 
+
+    /**
+     * Replaces the mount system service with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("mount");
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

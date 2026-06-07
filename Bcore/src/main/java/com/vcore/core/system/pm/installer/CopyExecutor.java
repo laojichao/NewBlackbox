@@ -9,8 +9,30 @@ import com.vcore.entity.pm.InstallOption;
 import com.vcore.utils.FileUtils;
 import com.vcore.utils.NativeUtils;
 
+/**
+ * Executor that copies application files during package installation.
+ *
+ * <p>This executor handles two main tasks:</p>
+ * <ul>
+ *   <li>Extracts and copies native libraries from the APK to the app's lib directory
+ *       (skipped for system apps that use the host's native libs)</li>
+ *   <li>For storage-based installs, copies or moves the APK to the virtual app directory
+ *       and updates the base code path</li>
+ * </ul>
+ */
 public class CopyExecutor implements Executor {
 
+    /**
+     * Executes the file copy operation for package installation.
+     *
+     * <p>For non-system packages, copies native libraries. For storage-flagged installs,
+     * copies or renames the APK file to the virtual base APK directory.</p>
+     *
+     * @param ps      the package settings containing the APK path and package name
+     * @param option  the install options specifying flags such as FLAG_SYSTEM and FLAG_STORAGE
+     * @param userId  the virtual user ID (unused in this executor)
+     * @return 0 on success, -1 on failure
+     */
     @Override
     public int exec(BPackageSettings ps, InstallOption option, int userId) {
         try {
@@ -22,7 +44,7 @@ public class CopyExecutor implements Executor {
             return -1;
         }
         if (option.isFlag(InstallOption.FLAG_STORAGE)) {
-            // 外部安装
+            // External install: copy or move APK to virtual storage
             File origFile = new File(ps.pkg.baseCodePath);
             File newFile = BEnvironment.getBaseApkDir(ps.pkg.packageName);
             try {

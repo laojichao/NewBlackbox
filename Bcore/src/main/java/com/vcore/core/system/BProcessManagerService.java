@@ -33,18 +33,54 @@ import com.vcore.utils.compat.ApplicationThreadCompat;
 import com.vcore.utils.compat.BundleCompat;
 import com.vcore.utils.provider.ProviderCall;
 
+/**
+ * Manages the lifecycle of virtual application processes within the BlackBox environment.
+ * <p>
+ * Responsible for starting, tracking, restarting, and killing virtual app processes.
+ * Each virtual process is identified by a unique bPID (BlackBox Process ID) and
+ * associated with a bUID (BlackBox User ID). This service maintains a mapping from
+ * UIDs to process records and handles process initialization via provider calls.
+ */
 public class BProcessManagerService implements ISystemService {
     public static final String TAG = "BProcessManager";
 
+    /** Singleton instance of the process manager service. */
     public static final BProcessManagerService sBProcessManagerService = new BProcessManagerService();
+
+    /** Mapping from bUID to a map of process name to ProcessRecord. */
     private final Map<Integer, Map<String, ProcessRecord>> mProcessMap = new HashMap<>();
+
+    /** List of all active ProcessRecord instances, guarded by its own lock for pid lookups. */
     private final List<ProcessRecord> mPidsSelfLocked = new ArrayList<>();
+
+    /** Lock object guarding process start/kill operations. */
     private final Object mProcessLock = new Object();
 
+    /**
+     * Returns the singleton instance of BProcessManagerService.
+     *
+     * @return the singleton BProcessManagerService instance
+     */
     public static BProcessManagerService get() {
         return sBProcessManagerService;
     }
 
+    /**
+     * Starts a new virtual application process or returns an existing one.
+     * <p>
+     * If a process with the given name already exists and is initialized, it is returned
+     * directly. Otherwise, a new bPID is allocated, the process is initialized via a
+     * provider call, and the resulting ProcessRecord is registered.
+     *
+     * @param packageName the package name of the application to start
+     * @param processName the process name within the application
+     * @param userId      the virtual user ID under which the process runs
+     * @param bPID        the BlackBox process ID to use, or -1 to auto-allocate
+     * @param callingPid  the PID of the caller initiating the start
+     * @return the {@link ProcessRecord} for the started process, or null if the app
+     *         could not be found or initialized
+     * @throws RuntimeException if no free process slots are available when bPID is -1
+     */
     public ProcessRecord startProcessLocked(String packageName, String processName, int userId, int bPID, int callingPid) {
         ApplicationInfo info = BPackageManagerService.get().getApplicationInfo(packageName, 0, userId);
         if (info == null) {
@@ -106,6 +142,12 @@ public class BProcessManagerService implements ISystemService {
         return app;
     }
 
+    /**
+     * Kills the given virtual process by its real PID or by iterating running processes
+     * to find a matching bPID.
+     *
+     * @param app the ProcessRecord of the process to kill
+     */
     private void killProcess(final ProcessRecord app) {
         if (app.pid > 0) {
             Process.killProcess(app.pid);
@@ -126,6 +168,11 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Finds the first available (unused) bPID by scanning currently running processes.
+     *
+     * @return an available bPID in the range [0, FREE_COUNT), or -1 if all slots are occupied
+     */
     private int getUsingBPidL() {
         ActivityManager manager = (ActivityManager) BlackBoxCore.getContext().getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningAppProcessInfo> runningAppProcesses = manager.getRunningAppProcesses();
@@ -145,6 +192,14 @@ public class BProcessManagerService implements ISystemService {
         return -1;
     }
 
+    /**
+     * Restarts a virtual application process. Kills the current process associated with
+     * the calling PID and reuses its bPID to start a new process instance.
+     *
+     * @param packageName the package name of the application
+     * @param processName the process name within the application
+     * @param userId      the virtual user ID
+     */
     public void restartAppProcess(String packageName, String processName, int userId) {
         synchronized (mProcessLock) {
             int callingPid = Binder.getCallingPid();
@@ -159,6 +214,13 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Parses the bPID from a stub process name by extracting the numeric suffix
+     * after the host package prefix.
+     *
+     * @param stubProcessName the full stub process name (e.g., "com.host:p0")
+     * @return the parsed bPID, or -1 if the name does not match the expected format
+     */
     private int parseBPid(String stubProcessName) {
         String prefix;
         if (stubProcessName == null) {
@@ -175,6 +237,13 @@ public class BProcessManagerService implements ISystemService {
         return -1;
     }
 
+    /**
+     * Initializes a virtual application process by sending an init command via the
+     * content provider and attaching the client binder.
+     *
+     * @param record the ProcessRecord to initialize
+     * @return true if initialization succeeded and the client thread was attached
+     */
     private boolean initAppProcessL(ProcessRecord record) {
         Slog.d(TAG, "initProcess: " + record.processName);
         AppConfig appConfig = record.getClientConfig();
@@ -192,6 +261,13 @@ public class BProcessManagerService implements ISystemService {
         return true;
     }
 
+    /**
+     * Attaches the client-side activity thread to the given ProcessRecord. Sets up
+     * a death recipient to handle process termination and opens the init lock.
+     *
+     * @param app      the ProcessRecord to attach to
+     * @param appThread the IBinder of the client's activity thread
+     */
     private void attachClientL(final ProcessRecord app, final IBinder appThread) {
         IBActivityThread activityThread = IBActivityThread.Stub.asInterface(appThread);
         if (activityThread == null) {
@@ -221,6 +297,12 @@ public class BProcessManagerService implements ISystemService {
         app.initLock.open();
     }
 
+    /**
+     * Callback invoked when a virtual process dies. Removes the process from all
+     * tracking structures, cleans up the proc directory, and deletes associated notifications.
+     *
+     * @param record the ProcessRecord of the dead process
+     */
     public void onProcessDie(ProcessRecord record) {
         synchronized (mProcessLock) {
             killProcess(record);
@@ -238,6 +320,14 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Finds a ProcessRecord by package name, process name, and user ID.
+     *
+     * @param packageName the package name of the application
+     * @param processName the process name within the application
+     * @param userId      the virtual user ID
+     * @return the matching ProcessRecord, or null if not found
+     */
     public ProcessRecord findProcessRecord(String packageName, String processName, int userId) {
         synchronized (mProcessMap) {
             int appId = BPackageManagerService.get().getAppId(packageName);
@@ -251,6 +341,11 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Kills all processes belonging to the given package across all users.
+     *
+     * @param packageName the package name whose processes should be killed
+     */
     public void killAllByPackageName(String packageName) {
         synchronized (mProcessLock) {
             synchronized (mPidsSelfLocked) {
@@ -270,6 +365,12 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Kills all processes of a specific package for a specific user.
+     *
+     * @param packageName the package name whose processes should be killed
+     * @param userId      the virtual user ID
+     */
     public void killPackageAsUser(String packageName, int userId) {
         synchronized (mProcessLock) {
             int bUID = BUserHandle.getUid(userId, BPackageManagerService.get().getAppId(packageName));
@@ -286,6 +387,13 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Returns a list of all active ProcessRecords for a given package and user.
+     *
+     * @param packageName the package name to query
+     * @param userId      the virtual user ID
+     * @return a list of ProcessRecord instances, empty if none found
+     */
     public List<ProcessRecord> getPackageProcessAsUser(String packageName, int userId) {
         synchronized (mProcessMap) {
             int bUID = BUserHandle.getUid(userId, BPackageManagerService.get().getAppId(packageName));
@@ -297,6 +405,14 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Returns the bUID (app ID portion) for the caller identified by PID, falling
+     * back to the app ID of the given package name if no process record is found.
+     *
+     * @param pid         the calling PID to look up
+     * @param packageName fallback package name for app ID lookup
+     * @return the bUID (app ID) of the calling process or the package
+     */
     public int getBUidByPidOrPackageName(int pid, String packageName) {
         ProcessRecord callingProcess = findProcessByPid(pid);
         if (callingProcess == null) {
@@ -305,6 +421,12 @@ public class BProcessManagerService implements ISystemService {
         return BUserHandle.getAppId(callingProcess.bUID);
     }
 
+    /**
+     * Returns the virtual user ID for the process identified by the given calling PID.
+     *
+     * @param callingPid the PID to look up
+     * @return the user ID of the process, or 0 if not found
+     */
     public int getUserIdByCallingPid(int callingPid) {
         ProcessRecord callingProcess = findProcessByPid(callingPid);
         if (callingProcess == null) {
@@ -313,6 +435,12 @@ public class BProcessManagerService implements ISystemService {
         return callingProcess.userId;
     }
 
+    /**
+     * Finds a ProcessRecord by its real host PID.
+     *
+     * @param pid the real process PID to search for
+     * @return the matching ProcessRecord, or null if not found
+     */
     public ProcessRecord findProcessByPid(int pid) {
         synchronized (mPidsSelfLocked) {
             for (ProcessRecord processRecord : mPidsSelfLocked) {
@@ -324,6 +452,14 @@ public class BProcessManagerService implements ISystemService {
         }
     }
 
+    /**
+     * Retrieves the process name for a given PID from the ActivityManager.
+     *
+     * @param context the application context
+     * @param pid     the PID to look up
+     * @return the process name
+     * @throws RuntimeException if no running process matches the given PID
+     */
     private static String getProcessName(Context context, int pid) {
         String processName = null;
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -339,6 +475,13 @@ public class BProcessManagerService implements ISystemService {
         return processName;
     }
 
+    /**
+     * Retrieves the real host PID for a given process name by scanning running processes.
+     *
+     * @param context     the application context
+     * @param processName the process name to search for
+     * @return the PID of the matching process, or -1 if not found
+     */
     public static int getPid(Context context, String processName) {
         try {
             ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -354,6 +497,12 @@ public class BProcessManagerService implements ISystemService {
         return -1;
     }
 
+    /**
+     * Creates the /proc/cmdline file for the given process record, used for process
+     * identification within the BlackBox environment.
+     *
+     * @param record the ProcessRecord whose proc entry should be created
+     */
     private static void createProc(ProcessRecord record) {
         File cmdline = new File(BEnvironment.getProcDir(record.bPID), "cmdline");
         try {
@@ -361,10 +510,18 @@ public class BProcessManagerService implements ISystemService {
         } catch (IOException ignored) { }
     }
 
+    /**
+     * Removes the /proc directory entry for the given process record.
+     *
+     * @param record the ProcessRecord whose proc entry should be removed
+     */
     private static void removeProc(ProcessRecord record) {
         FileUtils.deleteDir(BEnvironment.getProcDir(record.bPID));
     }
 
+    /**
+     * Called when the system is ready. Cleans up the proc directory.
+     */
     @Override
     public void systemReady() {
         FileUtils.deleteDir(BEnvironment.getProcDir());

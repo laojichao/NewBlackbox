@@ -15,6 +15,9 @@ import com.vcore.fake.hook.ScanClass;
 import com.vcore.utils.compat.TaskDescriptionCompat;
 
 @ScanClass(ActivityManagerCommonProxy.class)
+/**
+ * Proxy for IActivityTaskManager system service (Android 10+) that intercepts activity task management operations such as setTaskDescription, redirecting them through the virtual environment.
+ */
 public class IActivityTaskManagerProxy extends BinderInvocationStub {
     public static final String TAG = "ActivityTaskManager";
 
@@ -22,11 +25,22 @@ public class IActivityTaskManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call("activity_task"));
     }
 
+
+    /**
+     * Returns the IActivityTaskManager binder interface from ServiceManager.
+     * @return the IActivityTaskManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IActivityTaskManager.Stub.asInterface.call(ServiceManager.getService.call("activity_task"));
     }
 
+
+    /**
+     * Replaces the activity_task system service and the ActivityTaskManager singleton with the proxy.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService("activity_task");
@@ -36,6 +50,11 @@ public class IActivityTaskManagerProxy extends BinderInvocationStub {
 
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

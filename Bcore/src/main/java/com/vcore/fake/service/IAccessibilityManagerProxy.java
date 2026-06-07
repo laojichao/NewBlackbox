@@ -13,21 +13,40 @@ import com.vcore.fake.hook.BinderInvocationStub;
 import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethods;
 
+/**
+ * Proxy for IAccessibilityManager system service that intercepts accessibility-related calls and replaces the user ID parameter with the virtual environment user ID.
+ */
 public class IAccessibilityManagerProxy extends BinderInvocationStub {
     public IAccessibilityManagerProxy() {
         super(ServiceManager.getService.call(Context.ACCESSIBILITY_SERVICE));
     }
 
+
+    /**
+     * Returns the IAccessibilityManager binder interface from ServiceManager.
+     * @return the IAccessibilityManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IAccessibilityManager.Stub.asInterface.call(ServiceManager.getService.call(Context.ACCESSIBILITY_SERVICE));
     }
 
+
+    /**
+     * Replaces the system ACCESSIBILITY_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.ACCESSIBILITY_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

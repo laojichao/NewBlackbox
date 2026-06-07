@@ -9,7 +9,18 @@ import com.vspace.R
 import com.vspace.bean.XpModuleInfo
 import com.vspace.util.ResUtil.getString
 
+/**
+ * Repository responsible for managing Xposed module lifecycle operations
+ * within the virtual environment.
+ *
+ * Provides listing, installation, and removal of Xposed modules via [BlackBoxCore].
+ */
 class XpRepository {
+    /**
+     * Retrieves all currently installed Xposed modules and posts them to [modulesLiveData].
+     *
+     * @param modulesLiveData receives the list of [XpModuleInfo].
+     */
     fun getInstallModules(modulesLiveData: MutableLiveData<List<XpModuleInfo>>) {
         val moduleList = BlackBoxCore.get().installedXPModules
         val result = mutableListOf<XpModuleInfo>()
@@ -21,6 +32,12 @@ class XpRepository {
         modulesLiveData.postValue(result)
     }
 
+    /**
+     * Installs an Xposed module from the given [source], which can be a file path or a URL.
+     *
+     * @param source the APK path or download URL for the module.
+     * @param resultLiveData receives a user-facing success/failure message.
+     */
     fun installModule(source: String, resultLiveData: MutableLiveData<String>) {
         val blackBoxCore = BlackBoxCore.get()
         val installResult = if (URLUtil.isValidUrl(source)) {
@@ -38,6 +55,12 @@ class XpRepository {
         }
     }
 
+    /**
+     * Uninstalls an Xposed module by its package name.
+     *
+     * @param packageName the package name of the module to remove.
+     * @param resultLiveData receives a user-facing success message.
+     */
     fun unInstallModule(packageName: String, resultLiveData: MutableLiveData<String>) {
         BlackBoxCore.get().uninstallXPModule(packageName)
         resultLiveData.postValue(getString(R.string.remove_success))

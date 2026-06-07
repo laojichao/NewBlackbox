@@ -8,7 +8,20 @@ import com.vspace.bean.GmsBean
 import com.vspace.bean.GmsInstallBean
 import com.vspace.util.ResUtil.getString
 
+/**
+ * Repository that manages Google Mobile Services (GMS) installation status
+ * across all virtual users.
+ *
+ * Provides operations to list GMS state per user, install GMS into a virtual user,
+ * and uninstall GMS from a virtual user.
+ */
 class GmsRepository {
+    /**
+     * Retrieves the GMS installation status for every virtual user and posts
+     * the result as a list of [GmsBean].
+     *
+     * @param mInstalledLiveData receives the list of [GmsBean] for all users.
+     */
     fun getGmsInstalledList(mInstalledLiveData: MutableLiveData<List<GmsBean>>) {
         val userList = arrayListOf<GmsBean>()
 
@@ -22,6 +35,12 @@ class GmsRepository {
         mInstalledLiveData.postValue(userList)
     }
 
+    /**
+     * Installs Google Mobile Services into the specified virtual user.
+     *
+     * @param userID the virtual user ID to install GMS into.
+     * @param mUpdateInstalledLiveData receives a [GmsInstallBean] with the operation result.
+     */
     fun installGms(userID: Int, mUpdateInstalledLiveData: MutableLiveData<GmsInstallBean>) {
         val installResult = BlackBoxCore.get().installGms(userID)
         val result = if (installResult.success) {
@@ -34,6 +53,13 @@ class GmsRepository {
         mUpdateInstalledLiveData.postValue(bean)
     }
 
+    /**
+     * Uninstalls Google Mobile Services from the specified virtual user.
+     * If GMS is not installed, the operation reports failure.
+     *
+     * @param userID the virtual user ID to uninstall GMS from.
+     * @param mUpdateInstalledLiveData receives a [GmsInstallBean] with the operation result.
+     */
     fun uninstallGms(userID: Int, mUpdateInstalledLiveData: MutableLiveData<GmsInstallBean>) {
         var isSuccess = false
         if (BlackBoxCore.get().isInstallGms(userID)) {

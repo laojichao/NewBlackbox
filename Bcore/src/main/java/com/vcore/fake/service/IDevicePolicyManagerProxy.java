@@ -12,22 +12,41 @@ import com.vcore.fake.hook.MethodHook;
 import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Proxy for IDevicePolicyManager system service that intercepts device policy management operations including storage encryption status, device owner queries, and device provisioning status.
+ */
 public class IDevicePolicyManagerProxy extends BinderInvocationStub {
     public IDevicePolicyManagerProxy() {
         super(ServiceManager.getService.call(Context.DEVICE_POLICY_SERVICE));
     }
 
+
+    /**
+     * Returns the IDevicePolicyManager binder interface from ServiceManager.
+     * @return the IDevicePolicyManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IDevicePolicyManager.Stub.asInterface.call(ServiceManager.getService.call(Context.DEVICE_POLICY_SERVICE));
     }
 
+
+    /**
+     * Replaces the system DEVICE_POLICY_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.DEVICE_POLICY_SERVICE);
 
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

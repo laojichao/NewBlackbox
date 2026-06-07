@@ -16,7 +16,23 @@ import com.vcore.app.BActivityThread;
 import com.vcore.utils.ArrayUtils;
 import com.vcore.utils.DrawableUtils;
 
+/**
+ * Compatibility utility for fixing Android {@link Activity} properties within the virtual
+ * framework. Handles wallpaper background restoration, fullscreen flag application, and
+ * task description patching so that virtual activities display correct metadata in the
+ * recent tasks screen.
+ */
 public class ActivityCompat {
+    /**
+     * Applies necessary compatibility fixes to an Activity after creation. This includes:
+     * <ul>
+     *   <li>Restoring the wallpaper background if the window theme requests it</li>
+     *   <li>Setting the fullscreen flag if the window theme requests it</li>
+     *   <li>Updating the task description with the virtual app's label and icon (API 21+)</li>
+     * </ul>
+     *
+     * @param activity the Activity instance to fix
+     */
     public static void fix(Activity activity) {
         Context baseContext = activity.getBaseContext();
         try {
@@ -62,6 +78,13 @@ public class ActivityCompat {
         }
     }
 
+    /**
+     * Retrieves the icon drawable for the given activity. First attempts to load the
+     * activity-specific icon, then falls back to the application icon.
+     *
+     * @param activity the activity to retrieve the icon for
+     * @return the activity or application icon drawable, or {@code null} if neither can be loaded
+     */
     private static Drawable getActivityIcon(Activity activity) {
         PackageManager packageManager = activity.getPackageManager();
         try {

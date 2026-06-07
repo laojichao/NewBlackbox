@@ -21,16 +21,32 @@ public class IRoleManagerProxy extends BinderInvocationStub {
         super(ServiceManager.getService.call(Context.ROLE_SERVICE));
     }
 
+
+    /**
+     * Returns the IRoleManager binder interface from ServiceManager.
+     * @return the IRoleManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IRoleManager.Stub.asInterface.call(ServiceManager.getService.call(Context.ROLE_SERVICE));
     }
 
+
+    /**
+     * Replaces the system ROLE_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.ROLE_SERVICE);
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

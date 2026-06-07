@@ -12,6 +12,14 @@ import com.vspace.util.ToastEx.toast
 import com.vspace.view.gms.GmsManagerActivity
 import com.vspace.view.xp.XpActivity
 
+/**
+ * PreferenceFragment that hosts all application settings:
+ * Xposed enable/disable toggle, Xposed module management, GMS manager,
+ * root-hiding, Xposed-hiding, and daemon-service toggles.
+ *
+ * Preference changes for root/Xposed/daemon settings require a restart
+ * to take effect; a toast is shown to inform the user.
+ */
 class SettingFragment : PreferenceFragmentCompat() {
     private lateinit var xpEnable: SwitchPreferenceCompat
     private lateinit var xpModule: Preference
@@ -57,6 +65,10 @@ class SettingFragment : PreferenceFragmentCompat() {
         }
     }
 
+    /**
+     * Initializes the GMS manager preference. If GMS is not supported on the device,
+     * the preference is disabled with an explanatory summary.
+     */
     private fun initGms() {
         val gmsManagerPreference: Preference = (findPreference("gms_manager")!!)
 
@@ -71,6 +83,13 @@ class SettingFragment : PreferenceFragmentCompat() {
         }
     }
 
+    /**
+     * Binds a [Preference.OnPreferenceChangeListener] to the [Preference] returned by [block]
+     * that persists the new boolean value into the corresponding [BlackBoxLoader] setting.
+     * Shows a restart-required toast on every change.
+     *
+     * @param block a lambda that finds and returns the target [Preference].
+     */
     private fun invalidHideState(block: () -> Preference) {
         val pref = block()
         pref.setOnPreferenceChangeListener { preference, newValue ->

@@ -11,6 +11,9 @@ import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.proxy.ProxyVpnService;
 import com.vcore.utils.MethodParameterUtils;
 
+/**
+ * Container for VPN-related method hooks that intercept VPN authorization, preparation, and establishment operations, replacing package names and handling VPN configuration for the virtual environment.
+ */
 public class VpnCommonProxy {
     @ProxyMethod("setVpnPackageAuthorization")
     public static class SetVpnPackageAuthorization extends MethodHook {

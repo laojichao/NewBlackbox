@@ -19,9 +19,24 @@ import black.android.content.pm.PackageParserNougat;
 import black.android.content.pm.PackageParserPie;
 import com.vcore.BlackBoxCore;
 
+/**
+ * Compatibility wrapper for Android's internal {@link PackageParser} API.
+ * Provides version-aware factory and invocation methods for parsing APK files,
+ * since the {@code PackageParser} constructor and method signatures changed across
+ * multiple Android versions (Lollipop through Pie/Q).
+ */
 public class PackageParserCompat {
+    /** Cached API level for fast comparisons. */
     private static final int API_LEVEL = Build.VERSION.SDK_INT;
 
+    /**
+     * Creates a {@link PackageParser} instance appropriate for the current Android version.
+     * On Q+ (API 29), also installs a callback so the parser can access the host's
+     * {@code PackageManager} for shared library resolution.
+     *
+     * @return a new {@link PackageParser} instance, or {@code null} if the current API level
+     *         is below Lollipop (API 21)
+     */
     public static PackageParser createParser() {
         if (BuildCompat.isQ()) {
             PackageParser packageParser = PackageParserPie._new.newInstance();
@@ -39,6 +54,15 @@ public class PackageParserCompat {
         return null;
     }
 
+    /**
+     * Parses an APK file into a {@link Package} object using the version-appropriate
+     * {@code PackageParser.parsePackage} method.
+     *
+     * @param parser     the {@link PackageParser} instance (created by {@link #createParser()})
+     * @param packageFile the APK file to parse
+     * @param flags      parse flags controlling which sections to include
+     * @return the parsed {@link Package} object
+     */
     public static Package parsePackage(PackageParser parser, File packageFile, int flags) {
         if (BuildCompat.isPie()) {
             return PackageParserPie.parsePackage.call(parser, packageFile, flags);
@@ -52,6 +76,15 @@ public class PackageParserCompat {
         return black.android.content.pm.PackageParser.parsePackage.call(parser, packageFile, null, new DisplayMetrics(), flags);
     }
 
+    /**
+     * Collects and verifies the signing certificates for a parsed package using the
+     * version-appropriate API. On Pie (API 28+), certificates are collected as a static
+     * method; on earlier versions, it is an instance method on the parser.
+     *
+     * @param parser the {@link PackageParser} instance
+     * @param p      the parsed {@link Package} whose certificates to collect
+     * @param flags  certificate collection flags
+     */
     public static void collectCertificates(PackageParser parser, Package p, int flags) {
         if (BuildCompat.isPie()) {
             PackageParserPie.collectCertificates.call(p, true);

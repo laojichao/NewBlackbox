@@ -8,6 +8,9 @@ import com.vspace.databinding.ActivitySettingBinding
 import com.vspace.util.ViewBindingEx.inflate
 import com.vspace.view.base.BaseActivity
 
+/**
+ * Host activity for the settings screen. Embeds [SettingFragment] in its layout.
+ */
 class SettingActivity : BaseActivity() {
     private val viewBinding: ActivitySettingBinding by inflate()
 
@@ -22,6 +25,11 @@ class SettingActivity : BaseActivity() {
     }
 
     companion object {
+        /**
+         * Convenience method to start this activity from any [Context].
+         *
+         * @param context the launching [Context].
+         */
         fun start(context: Context) {
             val intent = Intent(context, SettingActivity::class.java)
             intent.action = Intent.ACTION_OPEN_DOCUMENT

@@ -28,11 +28,22 @@ import com.vspace.view.main.MainActivity
 import java.util.*
 import kotlin.math.abs
 
+/**
+ * Fragment that displays the apps installed inside a specific virtual user.
+ *
+ * Supports launching, uninstalling, clearing data, force-stopping, and creating
+ * home-screen shortcuts via a long-press context menu. Also supports drag-and-drop
+ * reordering of apps through [AppsTouchCallBack].
+ *
+ * Use [newInstance] to create an instance with the required user ID argument.
+ */
 class AppsFragment : Fragment() {
+    /** The virtual user ID this fragment represents. */
     var userID: Int = 0
     private lateinit var viewModel: AppsViewModel
     private lateinit var mAdapter: RVAdapter<AppInfo>
     private val viewBinding: FragmentAppsBinding by inflate()
+    /** Holds the pending popup menu for touch-intercept dismissal logic. */
     private var popupMenu: PopupMenu? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +88,9 @@ class AppsFragment : Fragment() {
     }
 
     /**
-     * 拖拽优化
+     * Intercepts touch events on the RecyclerView to coordinate drag vs. tap behavior.
+     * Distinguishes between a vertical scroll (which hides/shows the FAB) and a tap
+     * (which triggers the pending popup menu).
      */
     private fun interceptTouch() {
         val point = Point()
@@ -109,6 +122,14 @@ class AppsFragment : Fragment() {
         }
     }
 
+    /**
+     * Determines whether the touch has moved beyond a 40px threshold,
+     * indicating a drag rather than a tap.
+     *
+     * @param point the initial touch-down coordinates.
+     * @param e the current [MotionEvent].
+     * @return true if the touch moved beyond the threshold.
+     */
     private fun isMove(point: Point, e: MotionEvent): Boolean {
         val max = 40
         val x = point.x
@@ -119,6 +140,13 @@ class AppsFragment : Fragment() {
         return xU > max || yU > max
     }
 
+    /**
+     * Detects vertical movement and notifies the [MainActivity] to show/hide
+     * the floating action button accordingly.
+     *
+     * @param point the initial touch-down coordinates.
+     * @param e the current [MotionEvent].
+     */
     private fun isDownAndUp(point: Point, e: MotionEvent) {
         val min = 10
         val y = point.y
@@ -129,6 +157,13 @@ class AppsFragment : Fragment() {
         }
     }
 
+    /**
+     * Swaps items in the adapter list to reflect a drag-and-drop move
+     * from [fromPosition] to [toPosition].
+     *
+     * @param fromPosition the start position of the dragged item.
+     * @param toPosition the target position for the dragged item.
+     */
     private fun onItemMove(fromPosition: Int, toPosition: Int) {
         if (fromPosition < toPosition) {
             for (i in fromPosition until toPosition) {
@@ -142,6 +177,10 @@ class AppsFragment : Fragment() {
         mAdapter.notifyItemMoved(fromPosition, toPosition)
     }
 
+    /**
+     * Configures the long-press context menu on each app item, offering:
+     * uninstall, open, clear data, force stop, and create shortcut.
+     */
     private fun setOnLongClick() {
         mAdapter.setItemLongClickListener { view, data, _ ->
             popupMenu = PopupMenu(requireContext(), view).also {
@@ -210,6 +249,10 @@ class AppsFragment : Fragment() {
         mAdapter.notifyItemMoved(fromPosition, toPosition)
     }*/
 
+    /**
+     * Sets up LiveData observers for the installed-app list, operation results,
+     * launch outcomes, and sort-order updates.
+     */
     private fun initData() {
         viewBinding.stateView.showLoading()
         viewModel.getInstalledApps(userID)
@@ -255,6 +298,11 @@ class AppsFragment : Fragment() {
         viewModel.launchLiveData.value = null
     }
 
+    /**
+     * Shows a confirmation dialog before uninstalling the specified app.
+     *
+     * @param info the [AppInfo] of the app to uninstall.
+     */
     private fun unInstallApk(info: AppInfo) {
         MaterialDialog(requireContext()).show {
             title(R.string.uninstall_app)
@@ -268,8 +316,9 @@ class AppsFragment : Fragment() {
     }
 
     /**
-     * 强行停止软件
-     * @param info AppInfo
+     * Shows a confirmation dialog before force-stopping the specified app.
+     *
+     * @param info the [AppInfo] of the app to stop.
      */
     private fun stopApk(info: AppInfo) {
         MaterialDialog(requireContext()).show {
@@ -284,8 +333,9 @@ class AppsFragment : Fragment() {
     }
 
     /**
-     * 清除软件数据
-     * @param info AppInfo
+     * Shows a confirmation dialog before clearing all data for the specified app.
+     *
+     * @param info the [AppInfo] of the app whose data to clear.
      */
     private fun clearApk(info: AppInfo) {
         MaterialDialog(requireContext()).show {
@@ -299,21 +349,35 @@ class AppsFragment : Fragment() {
         }
     }
 
+    /**
+     * Triggers installation of an APK from the given [source] into this fragment's virtual user.
+     *
+     * @param source the APK file path or URL to install.
+     */
     fun installApk(source: String) {
         showLoading()
         viewModel.install(source, userID)
     }
 
+    /**
+     * Delegates to [MainActivity.scanUser] to synchronize the ViewPager user tabs.
+     */
     private fun scanUser() {
         (requireActivity() as MainActivity).scanUser()
     }
 
+    /**
+     * Shows the loading dialog if the host activity implements [LoadingActivity].
+     */
     private fun showLoading() {
         if (requireActivity() is LoadingActivity) {
             (requireActivity() as LoadingActivity).showLoading()
         }
     }
 
+    /**
+     * Hides the loading dialog if the host activity implements [LoadingActivity].
+     */
     private fun hideLoading() {
         if (requireActivity() is LoadingActivity) {
             (requireActivity() as LoadingActivity).hideLoading()
@@ -321,6 +385,12 @@ class AppsFragment : Fragment() {
     }
 
     companion object {
+        /**
+         * Creates a new [AppsFragment] bound to the specified virtual user.
+         *
+         * @param userID the virtual user ID to display apps for.
+         * @return a new [AppsFragment] instance with the user ID argument set.
+         */
         fun newInstance(userID: Int): AppsFragment {
             val fragment = AppsFragment()
             val bundle = bundleOf("userID" to userID)

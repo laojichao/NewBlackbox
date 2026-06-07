@@ -19,6 +19,12 @@ import com.vspace.util.ViewBindingEx.inflate
 import com.vspace.view.base.LoadingActivity
 import com.vspace.view.list.ListActivity
 
+/**
+ * Activity that displays all installed Xposed modules in the virtual environment
+ * and allows enabling/disabling or uninstalling them.
+ *
+ * The FAB opens [ListActivity] in Xposed-module-only mode to install new modules.
+ */
 class XpActivity : LoadingActivity() {
     private val viewBinding: ActivityXpBinding by inflate()
     private lateinit var viewModel: XpViewModel
@@ -34,6 +40,10 @@ class XpActivity : LoadingActivity() {
         initFab()
     }
 
+    /**
+     * Starts observing the module list and operation-result LiveData,
+     * then triggers a module refresh from the repository.
+     */
     private fun observeLiveData() {
         viewBinding.stateView.showLoading()
         viewModel.getInstalledModule()
@@ -55,6 +65,10 @@ class XpActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Sets up the RecyclerView with the [XpAdapter]. Clicking a module toggles
+     * its enable state; long-pressing triggers an uninstall confirmation dialog.
+     */
     private fun initRecyclerView() {
         mAdapter = RVAdapter<XpModuleInfo>(this, XpAdapter())
 			.bind(viewBinding.recyclerView)
@@ -72,6 +86,10 @@ class XpActivity : LoadingActivity() {
         viewBinding.stateView.showEmpty()
     }
 
+    /**
+     * Configures the FAB to open [ListActivity] showing only Xposed modules
+     * for installation into the virtual environment.
+     */
     private fun initFab() {
         viewBinding.fab.setOnClickListener {
             val intent = Intent(this, ListActivity::class.java)
@@ -93,6 +111,11 @@ class XpActivity : LoadingActivity() {
         viewModel.resultLiveData.removeObservers(this)
     }
 
+    /**
+     * Shows a confirmation dialog before uninstalling the specified Xposed module.
+     *
+     * @param packageName the package name of the module to uninstall.
+     */
     private fun unInstallModule(packageName: String) {
         MaterialDialog(this).show {
             title(R.string.uninstall_module)
@@ -105,11 +128,19 @@ class XpActivity : LoadingActivity() {
         }
     }
 
+    /**
+     * Triggers installation of a module from the given [source].
+     *
+     * @param source the module APK path or URL.
+     */
     private fun installModule(source: String) {
         showLoading()
         viewModel.installModule(source)
     }
 
+    /**
+     * Activity result launcher that receives the selected module source from [ListActivity].
+     */
     private val apkPathResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (it.resultCode == RESULT_OK) {
             it.data?.let { data ->
@@ -122,6 +153,11 @@ class XpActivity : LoadingActivity() {
     }
 
     companion object {
+        /**
+         * Convenience method to start this activity from any [Context].
+         *
+         * @param context the launching [Context].
+         */
         fun start(context: Context) {
             val intent = Intent(context, XpActivity::class.java)
             context.startActivity(intent)

@@ -15,16 +15,30 @@ import com.vcore.fake.hook.ProxyMethod;
 import com.vcore.fake.service.base.ValueMethodProxy;
 import com.vcore.utils.ArrayUtils;
 
+/**
+ * Proxy for IAlarmManager system service that intercepts alarm scheduling operations (set, setTime, setTimeZone), replacing package names and handling WorkSource parameters for the virtual environment.
+ */
 public class IAlarmManagerProxy extends BinderInvocationStub {
     public IAlarmManagerProxy() {
         super(ServiceManager.getService.call(Context.ALARM_SERVICE));
     }
 
+
+    /**
+     * Returns the IAlarmManager binder interface from ServiceManager.
+     * @return the IAlarmManager proxy instance
+     */
     @Override
     protected Object getWho() {
         return IAlarmManager.Stub.asInterface.call(ServiceManager.getService.call(Context.ALARM_SERVICE));
     }
 
+
+    /**
+     * Replaces the system ALARM_SERVICE with the proxied version.
+     * @param baseInvocation    the original invocation object
+     * @param proxyInvocation   the proxy invocation object
+     */
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
         replaceSystemService(Context.ALARM_SERVICE);
@@ -37,6 +51,11 @@ public class IAlarmManagerProxy extends BinderInvocationStub {
         addMethodHook(new ValueMethodProxy("setTimeZone",null));
     }
 
+
+    /**
+     * Checks if the hook environment is compromised.
+     * @return always returns false
+     */
     @Override
     public boolean isBadEnv() {
         return false;

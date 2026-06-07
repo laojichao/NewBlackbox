@@ -21,11 +21,19 @@ import com.vspace.util.ToastEx.toast
 import com.vspace.util.ViewBindingEx.inflate
 import com.vspace.view.base.BaseActivity
 
+/**
+ * Activity that displays all apps installed in the current virtual user and
+ * allows the user to configure per-app fake location overrides.
+ *
+ * Supports searching by app name/package, tapping to open the map picker
+ * ([FollowMyLocationOverlay]), and long-pressing to disable the fake location.
+ */
 class FakeManagerActivity : BaseActivity() {
     private val viewBinding: ActivityListBinding by inflate()
     // private lateinit var mAdapter: ListAdapter
     private lateinit var mAdapter: RVAdapter<FakeLocationBean>
     private lateinit var viewModel: FakeLocationViewModel
+    /** Full unfiltered list of apps, used as the source for search filtering. */
     private var appList: List<FakeLocationBean> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +61,12 @@ class FakeManagerActivity : BaseActivity() {
             .addCallback(onBackPressedCallback)
     }
 
+    /**
+     * Shows a confirmation dialog and disables the fake location for the selected app.
+     *
+     * @param item the [FakeLocationBean] to disable.
+     * @param position the adapter position of the item to update in-place.
+     */
     private fun disableFakeLocation(item: FakeLocationBean, position: Int) {
         MaterialDialog(this).show {
             title(R.string.close_fake_location)
@@ -68,6 +82,9 @@ class FakeManagerActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Wires up the [SimpleSearchView] to filter the displayed app list as the user types.
+     */
     private fun initSearchView() {
         viewBinding.searchView.setOnQueryTextListener(object :
             SimpleSearchView.OnQueryTextListener {
@@ -86,6 +103,10 @@ class FakeManagerActivity : BaseActivity() {
         })
     }
 
+    /**
+     * Initializes the [FakeLocationViewModel] and begins loading the app list.
+     * Observes LiveData to update the adapter and state view.
+     */
     private fun initViewModel() {
         viewModel = ViewModelProvider(this, InjectionUtil.getFakeLocationFactory())[FakeLocationViewModel::class.java]
         loadAppList()
@@ -106,11 +127,18 @@ class FakeManagerActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Triggers loading of the app list from the ViewModel.
+     */
     private fun loadAppList() {
         viewBinding.stateView.showLoading()
         viewModel.getInstallAppList(currentUserID())
     }
 
+    /**
+     * Activity result launcher that receives the coordinates selected from
+     * [FollowMyLocationOverlay] and applies them as a per-app fake location.
+     */
     private val locationResult =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == RESULT_OK) {
@@ -139,6 +167,12 @@ class FakeManagerActivity : BaseActivity() {
             }
         }
 
+    /**
+     * Filters the adapter items to those whose name or package name
+     * contains [newText] (case-insensitive).
+     *
+     * @param newText the search query string.
+     */
     private fun filterApp(newText: String) {
         val newList = this.appList.filter {
             it.name.contains(newText, true) or it.packageName.contains(newText, true)
@@ -155,6 +189,11 @@ class FakeManagerActivity : BaseActivity() {
     }
 
     companion object {
+        /**
+         * Convenience method to start this activity from any [Context].
+         *
+         * @param context the launching [Context].
+         */
         fun start(context: Context) {
             val intent = Intent(context, FakeManagerActivity::class.java)
             context.startActivity(intent)
