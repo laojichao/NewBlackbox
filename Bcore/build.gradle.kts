@@ -6,7 +6,7 @@ plugins {
 android {
     signingConfigs {
         getByName("debug") {
-            storeFile = file("/home/alex/Documents/GitHub/blackboxtest/app/vcore.jks")
+            storeFile = file("../app/vcore.jks")
             storePassword = "234y7229ujd2yr23r"
             keyPassword = "234y7229ujd2yr23r"
             keyAlias = "vcore"

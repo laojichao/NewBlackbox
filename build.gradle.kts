@@ -1,5 +1,5 @@
 ext.apply {
-    // this aapplyes on every projects and dependency
+    // this applies on every project and dependency
     set("compileSdk", 34)
     set("targetSdk", 28)
     set("minSdk", 23)

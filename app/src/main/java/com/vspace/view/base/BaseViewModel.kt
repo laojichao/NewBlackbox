@@ -31,6 +31,6 @@ open class BaseViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        viewModelScope.cancel()
+        // viewModelScope is automatically cancelled by the parent ViewModel class
     }
 }

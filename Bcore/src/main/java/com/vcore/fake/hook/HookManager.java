@@ -196,7 +196,7 @@ public class HookManager {
             }
             // 5.0
             if (BuildCompat.isL()) {
-                addInjector(new IJobServiceProxy());
+                // IJobServiceProxy already registered above
             }
             if (IPhysicalFlingManager.TYPE != null) {
                 addInjector(new IPhysicalFlingManagerProxy());

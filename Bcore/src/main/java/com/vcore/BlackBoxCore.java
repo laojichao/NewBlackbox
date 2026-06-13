@@ -773,7 +773,11 @@ public class BlackBoxCore extends ClientConfiguration {
         int pid = Process.myPid();
         String processName = null;
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningAppProcessInfo info : am.getRunningAppProcesses()) {
+        List<ActivityManager.RunningAppProcessInfo> processes = am.getRunningAppProcesses();
+        if (processes == null) {
+            throw new RuntimeException("processName = null (getRunningAppProcesses returned null)");
+        }
+        for (ActivityManager.RunningAppProcessInfo info : processes) {
             if (info.pid == pid) {
                 processName = info.processName;
                 break;

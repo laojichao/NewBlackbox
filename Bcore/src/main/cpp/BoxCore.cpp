@@ -88,12 +88,18 @@ void init(JNIEnv *env, jobject clazz, jint api_level) {
 
 // IO类添加重定向规则
 void addIORule(JNIEnv *env, jclass clazz, jstring target_path, jstring relocate_path) {
-    IO::addRule(env->GetStringUTFChars(target_path, JNI_FALSE),env->GetStringUTFChars(relocate_path, JNI_FALSE));
+    const char *target = env->GetStringUTFChars(target_path, JNI_FALSE);
+    const char *relocate = env->GetStringUTFChars(relocate_path, JNI_FALSE);
+    IO::addRule(target, relocate);
+    env->ReleaseStringUTFChars(target_path, target);
+    env->ReleaseStringUTFChars(relocate_path, relocate);
 }
 
 // IO类添加白名单规则
 void addWhiteList(JNIEnv *env, jclass clazz, jstring path) {
-    IO::addWhiteList(env->GetStringUTFChars(path, JNI_FALSE));
+    const char *p = env->GetStringUTFChars(path, JNI_FALSE);
+    IO::addWhiteList(p);
+    env->ReleaseStringUTFChars(path, p);
 }
 
 void enableIO(JNIEnv *env, jclass clazz) {

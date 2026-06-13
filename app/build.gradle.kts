@@ -82,18 +82,13 @@ android {
     buildFeatures{
         buildConfig = true
         viewBinding = true
-
+        aidl = true
+        prefab = true
     }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-    }
-
-    buildFeatures {
-        aidl = true
-        prefab = true
-        viewBinding = true
     }
 
    splits {

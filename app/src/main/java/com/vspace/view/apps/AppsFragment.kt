@@ -221,34 +221,6 @@ class AppsFragment : Fragment() {
         }
     }
 
-    /*interceptTouch()
-        setOnLongClick()
-        return viewBinding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        initData()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        viewModel.getInstalledApps(userID)
-    }
-
-    private fun onItemMove(fromPosition: Int, toPosition: Int) {
-        if (fromPosition < toPosition) {
-            for (i in fromPosition until toPosition) {
-                Collections.swap(mAdapter.getItems(), i, i + 1)
-            }
-        } else {
-            for (i in fromPosition downTo toPosition + 1) {
-                Collections.swap(mAdapter.getItems(), i, i - 1)
-            }
-        }
-        mAdapter.notifyItemMoved(fromPosition, toPosition)
-    }*/
-
     /**
      * Sets up LiveData observers for the installed-app list, operation results,
      * launch outcomes, and sort-order updates.

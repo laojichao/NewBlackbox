@@ -1,6 +1,5 @@
 package com.vspace.view.main
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -15,7 +14,6 @@ import com.vspace.view.list.ListViewModel
  * Also handles re-entry via [onNewIntent] to avoid duplicate launches.
  */
 class WelcomeActivity : AppCompatActivity() {
-    @SuppressLint("MissingSuperCall")
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         jump()
